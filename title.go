@@ -53,7 +53,7 @@ func GetMarkdownTitleSub(input io.Reader, defaultTitle string) string {
 			if line == "---" {
 				break
 			}
-			fields := strings.Split(line, ":")
+			fields := strings.SplitN(line, ":", 2)
 			if len(fields) >= 2 {
 				key := strings.TrimSpace(fields[0])
 				if strings.ToLower(key) == "title" {
