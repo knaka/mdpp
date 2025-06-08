@@ -17,6 +17,8 @@ import (
 	"github.com/yuin/goldmark"
 	meta "github.com/yuin/goldmark-meta"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	extast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/parser"
 	mtext "github.com/yuin/goldmark/text"
 )
@@ -114,8 +116,12 @@ func writeStrBeforeSegmentsStart(writer io.Writer, source []byte,
 	return lastSegment.Stop, nil
 }
 
-func writeStrBeforeSegmentsStop(writer io.Writer, source []byte,
-	position int, segments *mtext.Segments) (int, error) {
+func writeStrBeforeSegmentsStop(
+	writer io.Writer,
+	source []byte,
+	position int,
+	segments *mtext.Segments,
+) (int, error) {
 	lastSegment := segments.At(segments.Len() - 1)
 	buf := source[position:lastSegment.Stop]
 	if _, err := writer.Write(buf); err != nil {
@@ -127,11 +133,13 @@ func writeStrBeforeSegmentsStop(writer io.Writer, source []byte,
 const strReBegin = `<!-- *(mdpp[_a-zA-Z0-9]*)( ([_a-zA-Z][_a-zA-Z0-9]*)=([^ ]*))? *-->`
 const strReEnd = `<!-- /(mdpp[_a-zA-Z0-9]*) -->`
 
+// PreprocessWithoutDir processes the input reader and writes the result to writerOut
 func PreprocessWithoutDir(writer io.Writer, reader io.Reader) error {
 	_, _, err := Preprocess(writer, reader, "", "")
 	return err
 }
 
+// Preprocess processes the input reader and writes the result to writerOut.
 func Preprocess(writerOut io.Writer, reader io.Reader,
 	workDir string, inPath string) (foundMdppDirective bool, changed bool, errReturn error) {
 	foundMdppDirective = false
@@ -173,13 +181,14 @@ func Preprocess(writerOut io.Writer, reader io.Reader,
 			return ast.WalkContinue, nil
 		}
 		location = append(location, &node)
-		switch node.Kind() {
+		nodeKind := node.Kind()
+		switch nodeKind {
 		case ast.KindRawHTML:
-			rawHtml, ok := node.(*ast.RawHTML)
+			rawHTML, ok := node.(*ast.RawHTML)
 			if !ok {
 				return ast.WalkStop, errors.New("failed to downcast")
 			}
-			segments := rawHtml.Segments
+			segments := rawHTML.Segments
 			segment := segments.At(0)
 			text := string(source[segment.Start:segment.Stop])
 			if strings.HasPrefix(text, "<!-- mdpp") {
@@ -304,6 +313,23 @@ func Preprocess(writerOut io.Writer, reader io.Reader,
 			if err != nil {
 				return ast.WalkStop, err
 			}
+		case ast.KindParagraph:
+			break
+		case extast.KindTable:
+			table, ok := node.(*extast.Table)
+			if !ok {
+				return ast.WalkStop, errors.New("failed to downcast table")
+			}
+			lines := table.FirstChild().Lines()
+			// lines := table.Lines()
+			println("lines", lines.Len())
+		case extast.KindTableHeader:
+			header, ok := node.(*extast.TableHeader)
+			if !ok {
+				return ast.WalkStop, errors.New("failed to downcast table header")
+			}
+			lines := header.Lines()
+			println("header lines", lines.Len())
 		case ast.KindCodeBlock:
 			fallthrough
 		case ast.KindFencedCodeBlock:
@@ -334,7 +360,8 @@ func Preprocess(writerOut io.Writer, reader io.Reader,
 	}
 	markdown := goldmark.New(
 		goldmark.WithExtensions(
-			meta.Meta,
+			meta.Meta, // Enable meta extension to parse metadata of the Markdown document
+			extension.Table,
 		),
 	)
 	context := parser.NewContext()

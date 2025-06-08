@@ -400,3 +400,39 @@ func TestIndexRec(t *testing.T) {
 %s`, diff.LineDiff(string(expected), output.String()))
 	}
 }
+
+func TestTable(t *testing.T) {
+	input := bytes.NewBufferString(`Table:
+
+| Item | UnitPrice | Count | Total |
+| --- | --- | --- | --- |
+| Apple | 10 | 1 | 0 |
+| Orange | 20 | 2 | 0 |
+| Lemon | 30 | 3 | 0 |
+
+<!-- +MLR:
+  $Total = $UnitPrice * $Count
+-->
+`)
+	expected := []byte(`Table:
+
+| Item | UnitPrice | Count | Total |
+| --- | --- | --- | --- |
+| Apple | 10 | 1 | 10 |
+| Orange | 20 | 2 | 40 |
+| Lemon | 30 | 3 | 90 |
+
+<!-- +MLR:
+  $Total = $UnitPrice * $Count
+-->
+`)
+	output := bytes.NewBuffer(nil)
+	if err := PreprocessWithoutDir(output, input); err != nil {
+		t.Fatal("error")
+	}
+	if bytes.Compare(expected, output.Bytes()) != 0 {
+		t.Fatalf(`Unmatched:
+
+%s`, diff.LineDiff(string(expected), output.String()))
+	}
+}

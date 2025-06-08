@@ -1,23 +1,42 @@
 module github.com/knaka/mdpp
 
-go 1.20
+go 1.23.2
+
+toolchain go1.24.2
 
 require (
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
-	github.com/mattn/go-isatty v0.0.13
+	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/pflag v1.0.5
 	github.com/spiegel-im-spiegel/file v0.1.1
+	github.com/teekennedy/goldmark-markdown v0.5.1
 	github.com/thomasheller/braceexpansion v0.0.0-20201129203016-fc18a386c29f
-	github.com/yuin/goldmark v1.4.0
+	github.com/yuin/goldmark v1.7.8
 	github.com/yuin/goldmark-meta v1.0.0
 )
 
 require (
+	github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb // indirect
+	github.com/friendsofgo/errors v0.9.2 // indirect
+	github.com/johnkerl/lumin v1.0.0 // indirect
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/klauspost/compress v1.17.10 // indirect
+	github.com/lestrrat-go/strftime v1.1.0 // indirect
+	github.com/nine-lives-later/go-windows-terminal-sequences v1.0.4 // indirect
+	golang.org/x/term v0.24.0 // indirect
+	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 // indirect
+)
+
+require (
+	github.com/gomarkdown/markdown v0.0.0-20250311123330-531bef5e742b
+	github.com/johnkerl/miller/v6 v6.13.0
+	github.com/knaka/go-utils v0.1.3
 	github.com/saracen/walker v0.0.0-20191020095038-4d832ad28155 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spiegel-im-spiegel/errs v0.3.2 // indirect
 	github.com/thomasheller/slicecmp v0.0.0-20191029144834-595e9211ce09 // indirect
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/sys v0.0.0-20220915200043-7b5979e65e41 // indirect
+	golang.org/x/sync v0.8.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
