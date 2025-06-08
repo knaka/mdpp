@@ -8,6 +8,7 @@ import (
 
 func mlrPutMDTableInplace(filePath string, script string) {
 	argsSave := os.Args
+	defer func() { os.Args = argsSave }()
 	os.Args = []string{
 		"mlr",
 		"--imarkdown",
@@ -17,6 +18,5 @@ func mlrPutMDTableInplace(filePath string, script string) {
 		"-e", script,
 		filePath,
 	}
-	defer func() { os.Args = argsSave }()
 	mlrentry.Main()
 }
