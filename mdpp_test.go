@@ -2,18 +2,10 @@ package mdpp
 
 import (
 	"bytes"
-	"os"
-	"path"
-	"regexp"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/andreyvit/diff"
-	"github.com/stretchr/testify/assert"
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/text"
 
 	. "github.com/knaka/go-utils"
 )
@@ -447,23 +439,48 @@ func TestTable(t *testing.T) {
 	}
 }
 
-func parseMarkdown(sourceMS []byte) ast.Node {
-	reader := text.NewReader(sourceMS)
-	md := goldmark.New()
-	doc := md.Parser().Parse(reader)
-	if doc == nil {
-		panic("Failed to parse markdown")
-	}
-	return doc
-}
-
-var regexpMLRComment = sync.OnceValue(func() *regexp.Regexp {
-	return regexp.MustCompile(`<!--\s*\+MLR:\s*([^-]+?)\s*-->`)
-})
-
 func TestTableMlr(t *testing.T) {
-	sourceMD := []byte(`foo
-	
+	tests := []struct {
+		run        bool
+		name       string
+		sourceMD   []byte
+		expectedMD []byte
+	}{
+		{
+			run:  true,
+			name: "Basic case",
+			sourceMD: []byte(`foo
+
+| Item | UnitPrice | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 0 |
+| Banana | 2.0 | 5 | 0 |
+| Orange | 1.2 | 8 | 0 |
+<!-- +MLR:
+  $Total = $UnitPrice * $Quantity
+-->
+
+bar
+`),
+			expectedMD: []byte(`foo
+
+| Item | UnitPrice | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 30 |
+| Banana | 2.0 | 5 | 10 |
+| Orange | 1.2 | 8 | 9.6 |
+<!-- +MLR:
+  $Total = $UnitPrice * $Quantity
+-->
+
+bar
+`),
+		},
+		{
+			run:  true,
+			name: "Table in blockquote",
+			sourceMD: []byte(`foo
+
 > | Item | UnitPrice | Quantity | Total |
 > | --- | --- | --- | --- |
 > | Apple | 1.5 | 12 | 0 |
@@ -473,59 +490,35 @@ func TestTableMlr(t *testing.T) {
 > <!-- +MLR: $Total = $UnitPrice * $Quantity -->
 
 bar
-`)
-	doc := parseMarkdown(sourceMD)
-	doc.Dump(sourceMD, 0)
-	assert.NotNil(t, doc, "Document should not be nil")
-	V0(ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if !entering {
-			return ast.WalkContinue, nil
-		}
-		switch node.Kind() {
-		case ast.KindHTMLBlock:
-			lines := node.Lines()
-			if lines.Len() == 0 {
-				break
-			}
-			segment := lines.At(0)
-			text := string(sourceMD[segment.Start:segment.Stop])
-			if matches := regexpMLRComment().FindStringSubmatch(text); len(matches) >= 2 {
-				mlrScript := matches[1]
-				// t.Log("MLR script:", mlrScript)
-				prevNode := node.PreviousSibling()
-				if prevNode.Kind() != ast.KindParagraph {
-					break
-				}
-				lines := prevNode.Lines()
+`),
+			expectedMD: []byte(`foo
 
-				j := lines.At(0).Start
-				prefix := ""
-				for i := j; true; i-- {
-					if i == -1 || sourceMD[i] == '\n' || sourceMD[i] == '\r' {
-						prefix = string(sourceMD[i+1:j]) + prefix
-						break
-					}
-				}
-				t.Log("Prefix:", prefix)
-				markdownTable := lines.Value(sourceMD)
-				// t.Log("Markdown table:", string(markdownTable))
-				func() {
-					tempDirPath, tempDirCleanFn := mkdirTemp()
-					defer tempDirCleanFn()
-					tempFilePath := path.Join(tempDirPath, "data.md")
-					V0(os.WriteFile(tempFilePath, []byte(markdownTable), 0600))
-					mlrMDInplacePut(tempFilePath, mlrScript)
-					result := V(os.ReadFile(tempFilePath))
-					t.Log("Result:", string(result))
-					// Print each line of the result with prefix
-					for _, line := range bytes.Split(result, []byte{'\n'}) {
-						if len(line) > 0 {
-							t.Log(prefix + string(line))
-						}
-					}
-				}()
-			}
+> | Item | UnitPrice | Quantity | Total |
+> | --- | --- | --- | --- |
+> | Apple | 1.5 | 12 | 18 |
+> | Banana | 2.0 | 5 | 10 |
+> | Orange | 1.2 | 8 | 9.6 |
+>
+> <!-- +MLR: $Total = $UnitPrice * $Quantity -->
+
+bar
+`),
+		},
+	}
+
+	for _, tt := range tests {
+		if !tt.run {
+			t.Logf("Skipping test %s", tt.name)
+			continue
 		}
-		return ast.WalkContinue, nil
-	}))
+		t.Run(tt.name, func(t *testing.T) {
+			writer := bytes.NewBuffer(nil)
+			V0(Process(tt.sourceMD, writer))
+			if bytes.Compare(tt.expectedMD, writer.Bytes()) != 0 {
+				t.Fatalf(`Unmatched for %s:
+
+%s`, tt.name, diff.LineDiff(string(tt.expectedMD), writer.String()))
+			}
+		})
+	}
 }

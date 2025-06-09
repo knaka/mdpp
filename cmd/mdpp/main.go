@@ -2,36 +2,23 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/knaka/mdpp"
 	"github.com/mattn/go-isatty"
 
 	flag "github.com/spf13/pflag"
+
+	. "github.com/knaka/go-utils" //revive:disable-line dot-imports
 )
 
-func waitForDebugger() {
-	if os.Getenv("WAIT_FOR_DEBUGGER") != "" {
-		log.Println("PID", os.Getpid())
-		for {
-			err := exec.Command("sh", "-c", fmt.Sprintf("ps w | grep '\\b[d]lv\\b.*\\battach\\b.*\\b%d\\b'", os.Getpid())).Run()
-			time.Sleep(1 * time.Second)
-			if err == nil {
-				break
-			}
-		}
-	}
-}
-
 func main() {
-	waitForDebugger()
+	Debugger()
 	var outPath string
 	flag.StringVarP(&outPath, "outfile", "o", "", "Output outFile")
 	var shouldPrintHelp bool
@@ -65,7 +52,7 @@ func main() {
 				}
 				defer func() { _ = inFile.Close() }()
 				var outFile *os.File
-				outFile, err = ioutil.TempFile("", "mdpp")
+				outFile, err = os.CreateTemp("", "mdpp")
 				if err != nil {
 					return
 				}
@@ -80,18 +67,19 @@ func main() {
 						log.Fatal("Error", err.Error())
 					}
 				}
-				var changed bool
-				_, changed, err = mdpp.Preprocess(bufOut, inFile, filepath.Dir(inPath), absPath)
+				sourceMD, err := os.ReadFile(absPath)
 				if err != nil {
-					return
+					log.Fatal("Failed to read inFile: ", inPath)
 				}
-				if !changed {
-					return
+				err = mdpp.Process(sourceMD, bufOut)
+				if err != nil {
+					log.Fatal("Failed to preprocess: ", err.Error())
 				}
+				// _, changed, err = mdpp.PreprocessOld(bufOut, inFile, filepath.Dir(inPath), absPath)
+				// if err != nil {
+				// 	return
+				// }
 				err = bufOut.Flush()
-				if err != nil {
-					return
-				}
 				if err != nil {
 					return
 				}
@@ -103,6 +91,14 @@ func main() {
 				if err != nil {
 					return
 				}
+				// Compare the original file with the output file
+				outContent, err := os.ReadFile(outFile.Name())
+				if err != nil {
+					log.Fatal("Failed to read output outFile: ", outFile.Name())
+				}
+				if bytes.Equal(sourceMD, outContent) {
+					return
+				}
 				err = os.Rename(outFile.Name(), inPath)
 				if err != nil {
 					return
@@ -112,7 +108,7 @@ func main() {
 				log.Fatalln("Failed to preprocess: ", err.Error())
 			}
 		}
-	} else {
+	} else { // Not in-place mode
 		var outFile *os.File
 		var output io.Writer
 		if outPath == "-" {
@@ -138,7 +134,6 @@ func main() {
 			args = append(args, "-")
 		}
 		for _, inPath := range args {
-			var err error
 			func() {
 				var inFile *os.File
 				if inPath == "-" {
@@ -151,26 +146,15 @@ func main() {
 					}
 					defer func() { _ = inFile.Close() }()
 				}
-				absPath := ""
-				if inPath != "" {
-					if absPath, err = filepath.Abs(inPath); err != nil {
-						log.Fatal("Error", err.Error())
-					}
+				sourceMD, err := io.ReadAll(inFile)
+				if err != nil {
+					log.Fatal("Failed to read inFile: ", inPath)
 				}
-				var workDir string
-				if inPath == "-" {
-					workDir, err = os.Getwd()
-					if err != nil {
-						log.Fatal("Failed to get working directory")
-					}
-				} else {
-					workDir = filepath.Dir(inPath)
+				err = mdpp.Process(sourceMD, output)
+				if err != nil {
+					log.Fatal("Failed to preprocess: ", err.Error())
 				}
-				_, _, err = mdpp.Preprocess(output, inFile, workDir, absPath)
 			}()
-			if err != nil {
-				log.Fatal("Failed to preprocess: ", err.Error())
-			}
 		}
 	}
 }

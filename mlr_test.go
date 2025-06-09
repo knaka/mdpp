@@ -11,13 +11,6 @@ import (
 	. "github.com/knaka/go-utils"
 )
 
-func mkdirTemp() (string, func()) {
-	tempDirPath := V(os.MkdirTemp("", "mdpp"))
-	return tempDirPath, func() {
-		os.RemoveAll(tempDirPath)
-	}
-}
-
 func TestMLR(t *testing.T) {
 	tempDirPath, tempDirCleanFn := mkdirTemp()
 	defer tempDirCleanFn()

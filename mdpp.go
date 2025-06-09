@@ -7,20 +7,29 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	fileex "github.com/spiegel-im-spiegel/file"
 	be "github.com/thomasheller/braceexpansion"
 	"github.com/yuin/goldmark"
+	gm "github.com/yuin/goldmark"
+	gmmeta "github.com/yuin/goldmark-meta"
 	meta "github.com/yuin/goldmark-meta"
 	"github.com/yuin/goldmark/ast"
+	gmast "github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	extast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/parser"
+	gmparser "github.com/yuin/goldmark/parser"
+	dmtext "github.com/yuin/goldmark/text"
 	mtext "github.com/yuin/goldmark/text"
+
+	. "github.com/knaka/go-utils"
 )
 
 // Write index to io.Writer with indent
@@ -135,12 +144,12 @@ const strReEnd = `<!-- /(mdpp[_a-zA-Z0-9]*) -->`
 
 // PreprocessWithoutDir processes the input reader and writes the result to writerOut
 func PreprocessWithoutDir(writer io.Writer, reader io.Reader) error {
-	_, _, err := Preprocess(writer, reader, "", "")
+	_, _, err := PreprocessOld(writer, reader, "", "")
 	return err
 }
 
-// Preprocess processes the input reader and writes the result to writerOut.
-func Preprocess(writerOut io.Writer, reader io.Reader,
+// PreprocessOld processes the input reader and writes the result to writerOut.
+func PreprocessOld(writerOut io.Writer, reader io.Reader,
 	workDir string, inPath string) (foundMdppDirective bool, changed bool, errReturn error) {
 	foundMdppDirective = false
 	changed = false
@@ -399,4 +408,114 @@ func getIndentBeforeSegment(segment mtext.Segment, source []byte) string {
 		}
 	}
 	return indent
+}
+
+// gmParser returns a Goldmark parser.
+var gmParser = sync.OnceValue(func() gmparser.Parser {
+	return gm.New(
+		gm.WithExtensions(
+			gmmeta.Meta, // Enable the `Meta` extension to parse metadata in the Markdown document
+			// Do not add `Table` extension here, as it transforms paragraphs into tables, retains the position of each cell, and discards the position of the table itself.
+		),
+	).Parser()
+})
+
+// gmParse parses the given Markdown source and returns the AST.
+func gmParse(source []byte) gmast.Node {
+	// Parse the Markdown source into an AST
+	return gmParser().Parse(dmtext.NewReader(source))
+}
+
+var regexpMLRDirective = sync.OnceValue(func() *regexp.Regexp {
+	// Matches the MLR directive in HTML comments, e.g.:
+	//
+	//   <!-- +MLR: $Total = $UnitPrice * $Count -->
+	//
+	// or
+	//
+	//   <!-- +MLR:
+	//     $Total = $UnitPrice * $Count
+	//   -->
+	//
+	// In the second case, the "closure" part is stored in the `.Closure` member of the node.
+	return regexp.MustCompile(`^<!--\s*\+MLR:\s*([^-]+?)\s*(-->\s*)?$`)
+})
+
+// getPrefixStart returns the prefix of the line at the given start position in the source markdown.
+func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
+	for i := blockStart; true; i-- {
+		if i == -1 || sourceMD[i] == '\n' || sourceMD[i] == '\r' {
+			return i + 1
+		}
+	}
+	return
+}
+
+func mkdirTemp() (string, func()) {
+	tempDirPath := V(os.MkdirTemp("", "mdpp"))
+	return tempDirPath, func() {
+		os.RemoveAll(tempDirPath)
+	}
+}
+
+// Process processes the source markdown, identifies directives in HTML blocks, applies modifications, and writes the result to the writer.
+func Process(sourceMD []byte, writer io.Writer) error {
+	gmTree := gmParse(sourceMD)
+	// gmTree.Dump(sourceMD, 0)
+	pos := 0
+	err := gmast.Walk(gmTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
+		if !entering {
+			return gmast.WalkContinue, nil
+		}
+		switch node.Kind() {
+		case gmast.KindHTMLBlock:
+			htmlBlockLines := node.Lines()
+			if htmlBlockLines.Len() == 0 {
+				break
+			}
+			text := string(htmlBlockLines.Value(sourceMD))
+			// MLR directive
+			if matches := regexpMLRDirective().FindStringSubmatch(text); len(matches) >= 2 {
+				mlrScript := matches[1]
+				prevNode := node.PreviousSibling()
+				if prevNode.Kind() != gmast.KindParagraph {
+					break
+				}
+				tableLines := prevNode.Lines()
+				if tableLines.Len() == 0 {
+					break
+				}
+				tableStart := tableLines.At(0).Start
+				tableEnd := tableLines.At(tableLines.Len() - 1).Stop
+				prefixStart := getPrefixStart(sourceMD, tableStart)
+				markdownTableText := tableLines.Value(sourceMD)
+				func() {
+					tempDirPath, tempDirCleanFn := mkdirTemp()
+					defer tempDirCleanFn()
+					tempFilePath := path.Join(tempDirPath, "3202c41.md")
+					V0(os.WriteFile(tempFilePath, []byte(markdownTableText), 0600))
+					mlrMDInplacePut(tempFilePath, mlrScript)
+					result := V(os.ReadFile(tempFilePath))
+					_ = V(writer.Write(sourceMD[pos:prefixStart]))
+					if tableStart == prefixStart { // No prefix
+						_ = V(writer.Write(result))
+					} else { // Has a prefix
+						prefixText := string(sourceMD[prefixStart:tableStart])
+						for _, line := range bytes.Split(result, []byte{'\n'}) {
+							if len(strings.TrimSpace(string(line))) > 0 {
+								_ = V(writer.Write([]byte(prefixText + string(line) + "\n")))
+							}
+						}
+					}
+					pos = htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
+					_ = V(writer.Write(sourceMD[tableEnd+1 : pos]))
+				}()
+			}
+		}
+		return gmast.WalkContinue, nil
+	})
+	if pos < len(sourceMD) {
+		_ = V(writer.Write(sourceMD[pos:]))
+	}
+	return err
 }
