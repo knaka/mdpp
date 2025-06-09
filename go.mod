@@ -32,7 +32,6 @@ require (
 )
 
 require (
-	github.com/gomarkdown/markdown v0.0.0-20250311123330-531bef5e742b
 	github.com/johnkerl/miller/v6 v6.13.0
 	github.com/knaka/go-utils v0.1.3
 	github.com/saracen/walker v0.0.0-20191020095038-4d832ad28155 // indirect

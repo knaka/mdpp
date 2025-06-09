@@ -3,43 +3,11 @@ package mdpp
 import (
 	"testing"
 
-	gmdast "github.com/gomarkdown/markdown/ast"
-	"github.com/gomarkdown/markdown/parser"
 	"github.com/yuin/goldmark"
 	meta "github.com/yuin/goldmark-meta"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
 )
-
-func TestAST2(t *testing.T) {
-	source := []byte(`# A
-
-| AAA | B | C | D |
-| --- | --- | --- | --- |
-| 1 | 10000000 | 1 | 0 |
-| 2 | 20 | 2 | 0 |
-| 3 | 30 | 3 | 255 |
-
-foo
-
-<!-- foo -->
-
-<!-- bar -->
-
-bar
-
-<!-- baz -->
-`)
-	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
-	p := parser.NewWithExtensions(extensions)
-	doc := p.Parse(source)
-	t.Log(doc)
-	node := doc.GetChildren()[1]
-	if table, ok := node.(*gmdast.Table); ok {
-		t.Log(table)
-		table.AsLeaf()
-	}
-}
 
 func TestAST(t *testing.T) {
 	source := []byte(`これは[]()<!-- +LINK ./foo.md -->です。

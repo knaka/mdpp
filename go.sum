@@ -7,8 +7,6 @@ github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb h1:IT4JYU7k4ikYg1S
 github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb/go.mod h1:bH6Xx7IW64qjjJq8M2u4dxNaBiDfKK+z/3eGDpXEQhc=
 github.com/friendsofgo/errors v0.9.2 h1:X6NYxef4efCBdwI7BgS820zFaN7Cphrmb+Pljdzjtgk=
 github.com/friendsofgo/errors v0.9.2/go.mod h1:yCvFW5AkDIL9qn7suHVLiI/gH228n7PC4Pn44IGoTOI=
-github.com/gomarkdown/markdown v0.0.0-20250311123330-531bef5e742b h1:EY/KpStFl60qA17CptGXhwfZ+k1sFNJIUNR8DdbcuUk=
-github.com/gomarkdown/markdown v0.0.0-20250311123330-531bef5e742b/go.mod h1:JDGcbDT52eL4fju3sZ4TeHGsQwhG9nbDV21aMyhwPoA=
 github.com/johnkerl/lumin v1.0.0 h1:CV34cHZOJ92Y02RbQ0rd4gA0C06Qck9q8blOyaPoWpU=
 github.com/johnkerl/lumin v1.0.0/go.mod h1:eLf5AdQOaLvzZ2zVy4REr/DSeEwG+CZreHwNLICqv9E=
 github.com/johnkerl/miller/v6 v6.13.0 h1:ML5ycHg1r5f+HYDaZ5wWCXqkIxwnqunm6suP0kXpnGg=
