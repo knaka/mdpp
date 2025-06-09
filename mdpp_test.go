@@ -2,10 +2,20 @@ package mdpp
 
 import (
 	"bytes"
+	"os"
+	"path"
+	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/andreyvit/diff"
+	"github.com/stretchr/testify/assert"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
+
+	. "github.com/knaka/go-utils"
 )
 
 func TestCodeBlock(t *testing.T) {
@@ -435,4 +445,87 @@ func TestTable(t *testing.T) {
 
 %s`, diff.LineDiff(string(expected), output.String()))
 	}
+}
+
+func parseMarkdown(sourceMS []byte) ast.Node {
+	reader := text.NewReader(sourceMS)
+	md := goldmark.New()
+	doc := md.Parser().Parse(reader)
+	if doc == nil {
+		panic("Failed to parse markdown")
+	}
+	return doc
+}
+
+var regexpMLRComment = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`<!--\s*\+MLR:\s*([^-]+?)\s*-->`)
+})
+
+func TestTableMlr(t *testing.T) {
+	sourceMD := []byte(`foo
+	
+> | Item | UnitPrice | Quantity | Total |
+> | --- | --- | --- | --- |
+> | Apple | 1.5 | 12 | 0 |
+> | Banana | 2.0 | 5 | 0 |
+> | Orange | 1.2 | 8 | 0 |
+>
+> <!-- +MLR: $Total = $UnitPrice * $Quantity -->
+
+bar
+`)
+	doc := parseMarkdown(sourceMD)
+	doc.Dump(sourceMD, 0)
+	assert.NotNil(t, doc, "Document should not be nil")
+	V0(ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch node.Kind() {
+		case ast.KindHTMLBlock:
+			lines := node.Lines()
+			if lines.Len() == 0 {
+				break
+			}
+			segment := lines.At(0)
+			text := string(sourceMD[segment.Start:segment.Stop])
+			if matches := regexpMLRComment().FindStringSubmatch(text); len(matches) >= 2 {
+				mlrScript := matches[1]
+				// t.Log("MLR script:", mlrScript)
+				prevNode := node.PreviousSibling()
+				if prevNode.Kind() != ast.KindParagraph {
+					break
+				}
+				lines := prevNode.Lines()
+
+				j := lines.At(0).Start
+				prefix := ""
+				for i := j; true; i-- {
+					if i == -1 || sourceMD[i] == '\n' || sourceMD[i] == '\r' {
+						prefix = string(sourceMD[i+1:j]) + prefix
+						break
+					}
+				}
+				t.Log("Prefix:", prefix)
+				markdownTable := lines.Value(sourceMD)
+				// t.Log("Markdown table:", string(markdownTable))
+				func() {
+					tempDirPath, tempDirCleanFn := mkdirTemp()
+					defer tempDirCleanFn()
+					tempFilePath := path.Join(tempDirPath, "data.md")
+					V0(os.WriteFile(tempFilePath, []byte(markdownTable), 0600))
+					mlrMDInplacePut(tempFilePath, mlrScript)
+					result := V(os.ReadFile(tempFilePath))
+					t.Log("Result:", string(result))
+					// Print each line of the result with prefix
+					for _, line := range bytes.Split(result, []byte{'\n'}) {
+						if len(line) > 0 {
+							t.Log(prefix + string(line))
+						}
+					}
+				}()
+			}
+		}
+		return ast.WalkContinue, nil
+	}))
 }
