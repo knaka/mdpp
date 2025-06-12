@@ -467,6 +467,18 @@ func SetDebug(d bool) {
 
 // Process processes the source markdown, identifies directives in HTML blocks, applies modifications, and writes the result to the writer.
 func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
+	if len(dirPath) > 0 {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+		defer func() {
+			os.Chdir(currentDir)
+		}()
+		if err := os.Chdir(dirPath); err != nil {
+			return fmt.Errorf("failed to change directory to %s: %w", dirPath, err)
+		}
+	}
 	gmTree := gmParse(sourceMD)
 	if debug {
 		gmTree.Dump(sourceMD, 0)

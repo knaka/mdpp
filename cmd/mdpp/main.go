@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -43,11 +44,16 @@ func mdppMain(args []string) error {
 		args = append(args, stdinFileName)
 	}
 	for _, inPath := range args {
-		inPath, err = filepath.EvalSymlinks(inPath)
-		if err != nil {
-			return fmt.Errorf("Failed to evaluate symlinks for inPath: %s Error: %v", inPath, err)
+		var inDirPath string
+		if inPath == stdinFileName {
+			inDirPath = "."
+		} else {
+			inPath, err = filepath.EvalSymlinks(inPath)
+			if err != nil {
+				return fmt.Errorf("Failed to evaluate symlinks for inPath: %s Error: %v", inPath, err)
+			}
+			inDirPath = filepath.Dir(inPath)
 		}
-		inDirPath := filepath.Dir(inPath)
 		err = func() error {
 			var inFile *os.File
 			if inPath == stdinFileName {
@@ -77,7 +83,7 @@ func mdppMain(args []string) error {
 			}
 			bufOut := bufio.NewWriter(outFile)
 			var sourceMD []byte
-			sourceMD, err = os.ReadFile(inPath)
+			sourceMD, err = io.ReadAll(inFile)
 			if err != nil {
 				return fmt.Errorf("Failed to read inFile: %s Error: %v", inPath, err)
 			}
