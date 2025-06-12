@@ -426,7 +426,7 @@ func gmParse(source []byte) gmast.Node {
 	return gmParser().Parse(dmtext.NewReader(source))
 }
 
-var regexpMLRDirective = sync.OnceValue(func() *regexp.Regexp {
+var regexpMillerDirective = sync.OnceValue(func() *regexp.Regexp {
 	// Matches the MLR directive in HTML comments, e.g.:
 	//
 	//   <!-- +MLR: $Total = $UnitPrice * $Count -->
@@ -438,8 +438,11 @@ var regexpMLRDirective = sync.OnceValue(func() *regexp.Regexp {
 	//   -->
 	//
 	// In the second case, the "closure" part is stored in the `.Closure` member of the node.
-	return regexp.MustCompile(`^<!--\s*\+MLR:\s*([^-]+?)\s*(-->\s*)?$`)
+	return regexp.MustCompile(`^<!--\s*\+(MLR|MILLER):\s*([^-]+?)\s*(-->\s*)?$`)
 })
+
+// millerScriptIndex is the index of the Miller script in the matches of the Miller directive regex.
+const millerScriptIndex = 2
 
 // getPrefixStart returns the prefix of the line at the given start position in the source markdown.
 func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
@@ -496,8 +499,8 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 			}
 			text := string(htmlBlockLines.Value(sourceMD))
 			// MLR directive
-			if matches := regexpMLRDirective().FindStringSubmatch(text); len(matches) >= 2 {
-				mlrScript := matches[1]
+			if matches := regexpMillerDirective().FindStringSubmatch(text); len(matches) >= 2 {
+				mlrScript := matches[millerScriptIndex]
 				prevNode := node.PreviousSibling()
 				if prevNode.Kind() != gmast.KindParagraph {
 					break
