@@ -20,8 +20,6 @@ const stdinFileName = "-"
 func mdppMain(args []string) error {
 	var err error
 
-	Debugger()
-
 	commandLine := flag.NewFlagSet("mdpp", flag.ContinueOnError)
 
 	var shouldPrintHelp bool
@@ -128,6 +126,7 @@ func mdppMain(args []string) error {
 }
 
 func main() {
+	Debugger()
 	err := mdppMain(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
