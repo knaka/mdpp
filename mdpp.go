@@ -458,10 +458,19 @@ func mkdirTemp() (string, func()) {
 	}
 }
 
+var debug = false
+
+// SetDebug sets the debug mode for the package.
+func SetDebug(d bool) {
+	debug = d
+}
+
 // Process processes the source markdown, identifies directives in HTML blocks, applies modifications, and writes the result to the writer.
-func Process(sourceMD []byte, writer io.Writer) error {
+func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 	gmTree := gmParse(sourceMD)
-	// gmTree.Dump(sourceMD, 0)
+	if debug {
+		gmTree.Dump(sourceMD, 0)
+	}
 	pos := 0
 	err := gmast.Walk(gmTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {

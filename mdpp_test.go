@@ -513,7 +513,7 @@ bar
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			writer := bytes.NewBuffer(nil)
-			V0(Process(tt.sourceMD, writer))
+			V0(Process(tt.sourceMD, writer, ""))
 			if bytes.Compare(tt.expectedMD, writer.Bytes()) != 0 {
 				t.Fatalf(`Unmatched for %s:
 
