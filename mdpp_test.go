@@ -10,7 +10,7 @@ import (
 	. "github.com/knaka/go-utils"
 )
 
-func TestCodeBlock(t *testing.T) {
+func TestCodeBlockOld(t *testing.T) {
 	input := bytes.NewBufferString(`Code block:
 
 <!-- mdppcode src=misc/hello.c -->
@@ -522,3 +522,25 @@ bar
 		})
 	}
 }
+
+// func TestLinksOld(t *testing.T) {
+// 	input := bytes.NewBufferString(`Links:
+
+// Inline-links []()<!-- +LINK misc/foo.md -->
+// and []()<!-- +LINK misc/bar.md --> works.
+// `)
+// 	expected := []byte(`Links:
+
+// Inline-links [misc/foo.md](misc/foo.md)<!-- +LINK misc/foo.md -->
+// and [Bar ドキュメント](misc/bar.md)<!-- +LINK misc/bar.md --> works.
+// `)
+// 	output := bytes.NewBuffer(nil)
+// 	if err := PreprocessWithoutDir(output, input); err != nil {
+// 		t.Fatal(err.Error())
+// 	}
+// 	if bytes.Compare(expected, output.Bytes()) != 0 {
+// 		t.Fatalf(`Unmatched:
+
+// %s`, diff.LineDiff(string(expected), output.String()))
+// 	}
+// }
