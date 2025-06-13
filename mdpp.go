@@ -523,6 +523,7 @@ func getMDTitle(source []byte, defaultTitle string) string {
 //
 // Planned features:
 //   - TITLE | EXTRACT_TITLE : Extract the title from the linked Markdown file and use it as the link title.
+//   - MLR_SRC | MILLER_SRC : Reads the Miller script from the specified file and applies it to the table above the comment.
 //   - CODE : Reads the content of the file specified and writes it as a code block.
 //   - TBLFM (?)
 func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
