@@ -451,8 +451,8 @@ var regexpLinkDirective = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`^<!--\s*\+LINK:\s*([^-]+?)\s*(-->\s*)?$`)
 })
 
-var regexpTitleDirective = sync.OnceValue(func() *regexp.Regexp {
-	return regexp.MustCompile(`(?i)^<!--\s*\+(TITLE|EXTRACT_TITLE|REPLACE_TITLE)\s*(-->\s*)?$`)
+var regexpSyncTitleDirective = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`(?i)^<!--\s*\+(SYNC_TITLE|TITLE)\s*(-->\s*)?$`)
 })
 
 const linkIndex = 1
@@ -609,7 +609,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 			text := string(segments.Value(sourceMD))
 			var linkPathOpt *string
 			// +TITLE directive gets the link path from the previous link node
-			if matches := regexpTitleDirective().FindStringSubmatch(text); len(matches) > 0 {
+			if matches := regexpSyncTitleDirective().FindStringSubmatch(text); len(matches) > 0 {
 				prevNode := node.PreviousSibling()
 				if prevNode == nil || prevNode.Kind() != gmast.KindLink {
 					break
