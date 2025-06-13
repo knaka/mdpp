@@ -574,7 +574,7 @@ hoge fuga
 }
 
 func TestSyncTitle(t *testing.T) {
-	input := bytes.NewBufferString(`Links:
+	input := []byte(`Links:
 
 Inline-links [](misc/foo.md)<!-- +TITLE -->
 and [](./misc/bar.md)<!-- +SYNC_TITLE --> works.
@@ -585,61 +585,44 @@ Inline-links [foo](misc/foo.md)<!-- +TITLE -->
 and [Bar ドキュメント](./misc/bar.md)<!-- +SYNC_TITLE --> works.
 `)
 	writer := bytes.NewBuffer(nil)
-	V0(Process(input.Bytes(), writer, nil))
+	V0(Process(input, writer, nil))
 	if bytes.Compare(expected, writer.Bytes()) != 0 {
 		t.Fatalf(`Unmatched:
 %s`, diff.LineDiff(string(expected), writer.String()))
 	}
 }
 
-// func TestCodeBlock(t *testing.T) {
-// 	input := bytes.NewBufferString(`Code block:
+func TestCodeBlock(t *testing.T) {
+	input := []byte(`Code block:
 
-// 			hello
+* foo
 
-// 			world
+  ` + "```" + `
+  ` + "```" + `
 
-// <!-- +CODE misc/hello.c -->
+  <!-- +CODE: misc/hello.c -->
+`)
+	expected := []byte(`Code block:
 
-// * foo
+* foo
 
-//       foo
+  ` + "```" + `
+  #include <stdio.h>
+  
+  int main (int argc, char** argv) {
+  	printf("Hello!\n");
+  }
+  ` + "```" + `
 
-//       bar
+  <!-- +CODE: misc/hello.c -->
+`)
+	output := bytes.NewBuffer(nil)
+	if err := Process(input, output, nil); err != nil {
+		t.Fatal("error")
+	}
+	if bytes.Compare(expected, output.Bytes()) != 0 {
+		t.Fatalf(`Unmatched:
 
-// 	<!-- +CODE misc/hello.c -->
-
-// Done.
-// `)
-// 	expected := []byte(`Code block:
-
-// <!-- mdppcode src=misc/hello.c -->
-
-// 			#include <stdio.h>
-
-// 			int main (int argc, char** argv) {
-// 				printf("Hello!\n");
-// 			}
-
-// * foo
-
-//   <!-- mdppcode src=misc/hello.c -->
-
-//       #include <stdio.h>
-
-//       int main (int argc, char** argv) {
-//       	printf("Hello!\n");
-//       }
-
-// Done.
-// `)
-// 	output := bytes.NewBuffer(nil)
-// 	if err := PreprocessWithoutDir(output, input); err != nil {
-// 		t.Fatal("error")
-// 	}
-// 	if bytes.Compare(expected, output.Bytes()) != 0 {
-// 		t.Fatalf(`Unmatched:
-
-// %s`, diff.LineDiff(string(expected), output.String()))
-// 	}
-// }
+%s`, diff.LineDiff(string(expected), output.String()))
+	}
+}

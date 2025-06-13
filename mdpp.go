@@ -444,6 +444,15 @@ var regexpMillerDirective = sync.OnceValue(func() *regexp.Regexp {
 // millerScriptIndex is the index of the Miller script in the matches of the Miller directive regex.
 const millerScriptIndex = 2
 
+var regexpCodeDirective = sync.OnceValue(func() *regexp.Regexp {
+	// Matches the code directive in HTML comments, e.g.:
+	//
+	//   <!-- +CODE: ./path/to/file -->
+	return regexp.MustCompile(`(?i)^<!--\s*\+CODE:\s*([^ ]+?)\s*-->\s*$`)
+})
+
+const codeSrcIndex = 1
+
 var regexpSyncTitleDirective = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`(?i)^<!--\s*\+(SYNC_TITLE|TITLE)\s*(-->\s*)?$`)
 })
@@ -592,6 +601,27 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					pos = htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
 					_ = V(writer.Write(sourceMD[tableEnd+1 : pos]))
 				}()
+			} else
+			//  aaa
+			if matches := regexpCodeDirective().FindStringSubmatch(text); len(matches) > 0 {
+				codeSrc := matches[codeSrcIndex]
+				prevNode := node.PreviousSibling()
+				println(codeSrc, prevNode.Kind())
+				// Fenced code block is OK
+				if prevNode.Kind() == gmast.KindFencedCodeBlock {
+					fencedCodeBlock, _ := prevNode.(*gmast.FencedCodeBlock)
+					segments := fencedCodeBlock.Lines()
+					t := segments.Value(sourceMD)
+					println(t)
+				} else
+				// Code block is OK
+				if prevNode.Kind() == gmast.KindCodeBlock {
+
+				} else
+				// Otherwise, break
+				{
+					break
+				}
 			}
 		case gmast.KindRawHTML:
 			rawHTMLNode, _ := node.(*gmast.RawHTML)
