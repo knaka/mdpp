@@ -17,9 +17,9 @@ func TestCodeBlockOld(t *testing.T) {
 <!-- mdppcode src=misc/hello.c -->
 
 
-			hello
-	
-			world
+      hello
+  
+      world
 
 * foo
 
@@ -36,11 +36,11 @@ Done.
 <!-- mdppcode src=misc/hello.c -->
 
 
-			#include <stdio.h>
-			
-			int main (int argc, char** argv) {
-				printf("Hello!\n");
-			}
+      #include <stdio.h>
+      
+      int main (int argc, char** argv) {
+        printf("Hello!\n");
+      }
 
 * foo
 
@@ -49,7 +49,7 @@ Done.
       #include <stdio.h>
       
       int main (int argc, char** argv) {
-      	printf("Hello!\n");
+        printf("Hello!\n");
       }
 
 Done.
@@ -96,7 +96,7 @@ Done.
 #include <stdio.h>
 
 int main (int argc, char** argv) {
-	printf("Hello!\n");
+  printf("Hello!\n");
 }
 ~~~
 
@@ -108,7 +108,7 @@ int main (int argc, char** argv) {
   #include <stdio.h>
   
   int main (int argc, char** argv) {
-  	printf("Hello!\n");
+    printf("Hello!\n");
   }
   ~~~
 
@@ -365,7 +365,7 @@ func TestCodeBlockWithBlankLines(t *testing.T) {
   #include <stdio.h>
   
   int main (int argc, char** argv) {
-  	printf("Hello!\n");
+    printf("Hello!\n");
   }
   ~~~
 
@@ -619,7 +619,7 @@ func TestCodeBlock(t *testing.T) {
   #include <stdio.h>
   
   int main (int argc, char** argv) {
-  	printf("Hello!\n");
+    printf("Hello!\n");
   }
   ` + "```" + `
 
@@ -645,7 +645,7 @@ func TestCodeBlock(t *testing.T) {
   #include <stdio.h>
   
   int main (int argc, char** argv) {
-  	printf("Hello!\n");
+    printf("Hello!\n");
   }
   ` + "```" + `
 
