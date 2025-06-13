@@ -601,56 +601,47 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 				}()
 			}
 		case gmast.KindRawHTML:
-			rawHTML, _ := node.(*gmast.RawHTML)
-			segments := rawHTML.Segments
+			rawHTMLNode, _ := node.(*gmast.RawHTML)
+			segments := rawHTMLNode.Segments
 			if segments.Len() == 0 {
 				break
 			}
 			text := string(segments.Value(sourceMD))
+			var linkPathOpt *string
+			// +TITLE directive gets the link path from the previous link node
 			if matches := regexpTitleDirective().FindStringSubmatch(text); len(matches) > 0 {
 				prevNode := node.PreviousSibling()
-				if prevNode.Kind() != gmast.KindLink {
+				if prevNode == nil || prevNode.Kind() != gmast.KindLink {
 					break
 				}
-				nodeLink, _ := prevNode.(*gmast.Link)
-				linkPath := string(nodeLink.Destination)
-				targetMDContent, err := os.ReadFile(linkPath)
-				if err != nil {
-					break
-				}
-				title := getMDTitle(targetMDContent, linkPath)
-				cmtStart := segments.At(0).Start
-				linkStart := cmtStart - 1
-				for ; linkStart > 0; linkStart-- {
-					if sourceMD[linkStart] == '[' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
-						break
-					}
-				}
-				_ = V(writer.Write(sourceMD[pos:linkStart]))
-				pos = segments.At(segments.Len() - 1).Stop
-				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
-				_ = V(writer.Write(sourceMD[cmtStart:pos]))
-			} else if matches := regexpLinkDirective().FindStringSubmatch(text); len(matches) > 0 {
-				linkPath := matches[linkIndex]
+				linkNode, _ := prevNode.(*gmast.Link)
+				linkPath := string(linkNode.Destination)
+				linkPathOpt = &linkPath
+			} else
+			// +LINK directive
+			if matches := regexpLinkDirective().FindStringSubmatch(text); len(matches) > 0 {
+				linkPathOpt = &matches[linkIndex]
 				prevNode := node.PreviousSibling()
-				if prevNode.Kind() != gmast.KindLink {
+				if prevNode == nil || prevNode.Kind() != gmast.KindLink {
 					break
 				}
-				targetMDContent, err := os.ReadFile(linkPath)
+			}
+			if linkPathOpt != nil {
+				targetMD, err := os.ReadFile(*linkPathOpt)
 				if err != nil {
 					break
 				}
-				title := getMDTitle(targetMDContent, linkPath)
+				title := getMDTitle(targetMD, *linkPathOpt)
 				cmtStart := segments.At(0).Start
 				linkStart := cmtStart - 1
-				for ; linkStart > 0; linkStart-- {
+				for ; linkStart >= 0; linkStart-- {
 					if sourceMD[linkStart] == '[' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
 						break
 					}
 				}
 				_ = V(writer.Write(sourceMD[pos:linkStart]))
+				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, *linkPathOpt))
 				pos = segments.At(segments.Len() - 1).Stop
-				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
 				_ = V(writer.Write(sourceMD[cmtStart:pos]))
 			}
 		}

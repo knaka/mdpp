@@ -601,7 +601,7 @@ and [](./misc/bar.md)<!-- +TITLE --> works.
 	expected := []byte(`Links:
 
 Inline-links [foo](misc/foo.md)<!-- +TITLE -->
-and [Bar ドキュメント](misc/bar.md)<!-- +TITLE --> works.
+and [Bar ドキュメント](./misc/bar.md)<!-- +TITLE --> works.
 `)
 	writer := bytes.NewBuffer(nil)
 	V0(Process(input.Bytes(), writer, "."))
