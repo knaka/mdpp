@@ -519,11 +519,10 @@ func getMDTitle(source []byte, linkPath string) string {
 // Process parses the source markdown, detects directives in HTML comments, applies modifications, and writes the result to the writer.
 //
 // Supported directives:
+//   - SYNC_TITLE | TITLE : Extract the title from the linked Markdown file and use it as the link title.
 //   - MLR | MILLER : Processes the table above the comment using a Miller script.
-//   - LINK : Replaces the link with the title from the target Markdown file.
 //
 // Planned features:
-//   - TITLE | EXTRACT_TITLE : Extract the title from the linked Markdown file and use it as the link title.
 //   - MLR_SRC | MILLER_SRC : Reads the Miller script from the specified file and applies it to the table above the comment.
 //   - CODE : Reads the content of the file specified and writes it as a code block.
 //   - TBLFM (?)
