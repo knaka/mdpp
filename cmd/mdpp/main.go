@@ -100,7 +100,7 @@ func mdppMain(args []string) (err error) {
 				return fmt.Errorf("Failed to read inFile: %s Error: %v", inPath, err)
 			}
 			bufOut := bufio.NewWriter(outFile)
-			err = mdpp.Process(sourceMD, bufOut, inDirPath)
+			err = mdpp.Process(sourceMD, bufOut, &inDirPath)
 			if err != nil {
 				return fmt.Errorf("Failed to preprocess: %v", err)
 			}

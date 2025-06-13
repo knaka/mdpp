@@ -516,7 +516,7 @@ func getMDTitle(source []byte, linkPath string) string {
 	return base
 }
 
-// Process parses the source markdown, detects directives in HTML comments, applies modifications, and writes the result to the writer.
+// Process parses the source markdown, detects directives in HTML comments, applies modifications, and writes the result to the writer. If dirPathOpt is not nil, it changes the working directory to that path before processing.
 //
 // Supported directives:
 //   - SYNC_TITLE | TITLE : Extract the title from the linked Markdown file and use it as the link title.
@@ -526,8 +526,8 @@ func getMDTitle(source []byte, linkPath string) string {
 //   - MLR_SRC | MILLER_SRC : Reads the Miller script from the specified file and applies it to the table above the comment.
 //   - CODE : Reads the content of the file specified and writes it as a code block.
 //   - TBLFM (?)
-func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
-	if len(dirPath) > 0 {
+func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
+	if dirPathOpt != nil && *dirPathOpt != "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("failed to get current directory: %w", err)
@@ -535,8 +535,8 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 		defer func() {
 			os.Chdir(currentDir)
 		}()
-		if err := os.Chdir(dirPath); err != nil {
-			return fmt.Errorf("failed to change directory to %s: %w", dirPath, err)
+		if err := os.Chdir(*dirPathOpt); err != nil {
+			return fmt.Errorf("failed to change directory to %s: %w", *dirPathOpt, err)
 		}
 	}
 	gmTree, _ := gmParse(sourceMD)

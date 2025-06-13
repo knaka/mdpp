@@ -516,7 +516,7 @@ bar
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			writer := bytes.NewBuffer(nil)
-			V0(Process(tt.sourceMD, writer, ""))
+			V0(Process(tt.sourceMD, writer, nil))
 			if bytes.Compare(tt.expectedMD, writer.Bytes()) != 0 {
 				t.Fatalf(`Unmatched for %s:
 
@@ -585,7 +585,7 @@ Inline-links [foo](misc/foo.md)<!-- +TITLE -->
 and [Bar ドキュメント](./misc/bar.md)<!-- +SYNC_TITLE --> works.
 `)
 	writer := bytes.NewBuffer(nil)
-	V0(Process(input.Bytes(), writer, "."))
+	V0(Process(input.Bytes(), writer, nil))
 	if bytes.Compare(expected, writer.Bytes()) != 0 {
 		t.Fatalf(`Unmatched:
 %s`, diff.LineDiff(string(expected), writer.String()))
