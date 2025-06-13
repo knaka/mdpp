@@ -593,16 +593,25 @@ and [Bar ドキュメント](./misc/bar.md)<!-- +SYNC_TITLE --> works.
 }
 
 func TestCodeBlock(t *testing.T) {
-	input := []byte(`Code block:
+	tests := []struct {
+		name     string
+		input    []byte
+		expected []byte
+	}{
+		{
+			name: "basic code block",
+			input: []byte(`Code block:
 
 * foo
 
   ` + "```" + `
+  foo
+  bar
   ` + "```" + `
 
   <!-- +CODE: misc/hello.c -->
-`)
-	expected := []byte(`Code block:
+`),
+			expected: []byte(`Code block:
 
 * foo
 
@@ -615,14 +624,44 @@ func TestCodeBlock(t *testing.T) {
   ` + "```" + `
 
   <!-- +CODE: misc/hello.c -->
-`)
-	output := bytes.NewBuffer(nil)
-	if err := Process(input, output, nil); err != nil {
-		t.Fatal("error")
-	}
-	if bytes.Compare(expected, output.Bytes()) != 0 {
-		t.Fatalf(`Unmatched:
+`),
+		},
+		{
+			name: "empty code block",
+			input: []byte(`Code block:
 
-%s`, diff.LineDiff(string(expected), output.String()))
+* foo
+
+  ` + "```" + `
+  ` + "```" + `
+
+  <!-- +CODE: misc/hello.c -->
+`),
+			expected: []byte(`Code block:
+
+* foo
+
+  ` + "```" + `
+  #include <stdio.h>
+  
+  int main (int argc, char** argv) {
+  	printf("Hello!\n");
+  }
+  ` + "```" + `
+
+  <!-- +CODE: misc/hello.c -->
+`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := bytes.NewBuffer(nil)
+			if err := Process(tt.input, output, nil); err != nil {
+				t.Fatal("error")
+			}
+			if bytes.Compare(tt.expected, output.Bytes()) != 0 {
+				t.Fatalf(`Unmatched:\n\n%s`, diff.LineDiff(string(tt.expected), output.String()))
+			}
+		})
 	}
 }

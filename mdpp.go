@@ -611,6 +611,58 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 				if prevNode.Kind() == gmast.KindFencedCodeBlock {
 					fencedCodeBlock, _ := prevNode.(*gmast.FencedCodeBlock)
 					segments := fencedCodeBlock.Lines()
+					// Empty fenced code block does not have segments. Search the start and end positions
+					cmtStart := htmlBlockLines.At(0).Start
+					cmtStop := htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
+					prefix := ""
+					var blockStart int
+					var blockStop int
+					if segments.Len() == 0 {
+						blockStop = cmtStart - 1
+					outer:
+						for ; blockStop >= 0; blockStop-- {
+							if bytes.HasPrefix(sourceMD[blockStop:], []byte("```")) {
+								for i := blockStop; i >= 0; i-- {
+									if i == 0 || sourceMD[i-1] == '\n' {
+										prefix = string(sourceMD[i:blockStop])
+										blockStop = i
+										break outer
+									}
+								}
+							}
+						}
+						blockStart = blockStop
+					} else {
+						blockStart = segments.At(0).Start
+						for blockStart > 0 && sourceMD[blockStart-1] != '\n' {
+							blockStart--
+						}
+						blockStop = segments.At(segments.Len() - 1).Stop
+						for i := blockStop; i < len(sourceMD); i++ {
+							if sourceMD[i] == '`' {
+								prefix = string(sourceMD[blockStop:i])
+								break
+							}
+						}
+					}
+					codeContent, err := os.ReadFile(codeSrc)
+					if err != nil {
+						break
+					}
+					x := sourceMD[pos:blockStart]
+					_ = V(writer.Write(x))
+					pos = blockStop
+					codeLines := bytes.Split(codeContent, []byte{'\n'})
+					if len(codeLines) > 0 && len(codeLines[len(codeLines)-1]) == 0 {
+						codeLines = codeLines[:len(codeLines)-1]
+					}
+					for _, line := range codeLines {
+						_ = V(fmt.Fprintf(writer, "%s%s\n", prefix, line))
+					}
+					y := sourceMD[pos:cmtStop]
+					_ = V(writer.Write(y))
+					pos = cmtStop
+
 					t := segments.Value(sourceMD)
 					println(t)
 				} else
