@@ -451,6 +451,10 @@ var regexpLinkDirective = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`^<!--\s*\+LINK:\s*([^-]+?)\s*(-->\s*)?$`)
 })
 
+var regexpTitleDirective = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`(?i)^<!--\s*\+(TITLE|EXTRACT_TITLE|REPLACE_TITLE)\s*(-->\s*)?$`)
+})
+
 const linkIndex = 1
 
 // getPrefixStart returns the prefix of the line at the given start position in the source markdown.
@@ -477,7 +481,7 @@ func SetDebug(d bool) {
 	debug = d
 }
 
-func getMDTitle(source []byte, defaultTitle string) string {
+func getMDTitle(source []byte, linkPath string) string {
 	gmTree, gmContext := gmParse(source)
 	m := gmmeta.Get(gmContext)
 	if m != nil {
@@ -512,7 +516,11 @@ func getMDTitle(source []byte, defaultTitle string) string {
 	if title != "" {
 		return title
 	}
-	return defaultTitle
+	base := path.Base(linkPath)
+	if strings.HasSuffix(base, ".md") {
+		base = base[:len(base)-3]
+	}
+	return base
 }
 
 // Process parses the source markdown, detects directives in HTML comments, applies modifications, and writes the result to the writer.
@@ -593,16 +601,36 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 				}()
 			}
 		case gmast.KindRawHTML:
-			rawHTML, ok := node.(*gmast.RawHTML)
-			if !ok {
-				return gmast.WalkStop, errors.New("failed to downcast raw HTML")
-			}
+			rawHTML, _ := node.(*gmast.RawHTML)
 			segments := rawHTML.Segments
 			if segments.Len() == 0 {
 				break
 			}
 			text := string(segments.Value(sourceMD))
-			if matches := regexpLinkDirective().FindStringSubmatch(text); len(matches) > 0 {
+			if matches := regexpTitleDirective().FindStringSubmatch(text); len(matches) > 0 {
+				prevNode := node.PreviousSibling()
+				if prevNode.Kind() != gmast.KindLink {
+					break
+				}
+				nodeLink, _ := prevNode.(*gmast.Link)
+				linkPath := string(nodeLink.Destination)
+				targetMDContent, err := os.ReadFile(linkPath)
+				if err != nil {
+					break
+				}
+				title := getMDTitle(targetMDContent, linkPath)
+				cmtStart := segments.At(0).Start
+				linkStart := cmtStart - 1
+				for ; linkStart > 0; linkStart-- {
+					if sourceMD[linkStart] == '[' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
+						break
+					}
+				}
+				_ = V(writer.Write(sourceMD[pos:linkStart]))
+				pos = segments.At(segments.Len() - 1).Stop
+				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
+				_ = V(writer.Write(sourceMD[cmtStart:pos]))
+			} else if matches := regexpLinkDirective().FindStringSubmatch(text); len(matches) > 0 {
 				linkPath := matches[linkIndex]
 				prevNode := node.PreviousSibling()
 				if prevNode.Kind() != gmast.KindLink {
@@ -614,13 +642,13 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 				}
 				title := getMDTitle(targetMDContent, linkPath)
 				cmtStart := segments.At(0).Start
-				i := cmtStart - 1
-				for ; i > 0; i-- {
-					if sourceMD[i] == '[' && (i == 0 || sourceMD[i-1] != '\\') {
+				linkStart := cmtStart - 1
+				for ; linkStart > 0; linkStart-- {
+					if sourceMD[linkStart] == '[' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
 						break
 					}
 				}
-				_ = V(writer.Write(sourceMD[pos:i]))
+				_ = V(writer.Write(sourceMD[pos:linkStart]))
 				pos = segments.At(segments.Len() - 1).Stop
 				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
 				_ = V(writer.Write(sourceMD[cmtStart:pos]))

@@ -581,8 +581,27 @@ and []()<!-- +LINK: misc/bar.md --> works.
 `)
 	expected := []byte(`Links:
 
-Inline-links [misc/foo.md](misc/foo.md)<!-- +LINK: misc/foo.md -->
+Inline-links [foo](misc/foo.md)<!-- +LINK: misc/foo.md -->
 and [Bar ドキュメント](misc/bar.md)<!-- +LINK: misc/bar.md --> works.
+`)
+	writer := bytes.NewBuffer(nil)
+	V0(Process(input.Bytes(), writer, "."))
+	if bytes.Compare(expected, writer.Bytes()) != 0 {
+		t.Fatalf(`Unmatched:
+%s`, diff.LineDiff(string(expected), writer.String()))
+	}
+}
+
+func TestLinkExtraction(t *testing.T) {
+	input := bytes.NewBufferString(`Links:
+
+Inline-links [](misc/foo.md)<!-- +TITLE -->
+and [](./misc/bar.md)<!-- +TITLE --> works.
+`)
+	expected := []byte(`Links:
+
+Inline-links [foo](misc/foo.md)<!-- +TITLE -->
+and [Bar ドキュメント](misc/bar.md)<!-- +TITLE --> works.
 `)
 	writer := bytes.NewBuffer(nil)
 	V0(Process(input.Bytes(), writer, "."))
