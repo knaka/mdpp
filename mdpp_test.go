@@ -544,3 +544,56 @@ bar
 // %s`, diff.LineDiff(string(expected), output.String()))
 // 	}
 // }
+
+func TestCodeBlock(t *testing.T) {
+	input := bytes.NewBufferString(`Code block:
+
+			hello
+	
+			world
+
+<!-- +CODE misc/hello.c -->
+
+* foo
+
+      foo
+
+      bar
+	
+	<!-- +CODE misc/hello.c -->
+
+Done.
+`)
+	expected := []byte(`Code block:
+
+<!-- mdppcode src=misc/hello.c -->
+
+
+			#include <stdio.h>
+			
+			int main (int argc, char** argv) {
+				printf("Hello!\n");
+			}
+
+* foo
+
+  <!-- mdppcode src=misc/hello.c -->
+
+      #include <stdio.h>
+      
+      int main (int argc, char** argv) {
+      	printf("Hello!\n");
+      }
+
+Done.
+`)
+	output := bytes.NewBuffer(nil)
+	if err := PreprocessWithoutDir(output, input); err != nil {
+		t.Fatal("error")
+	}
+	if bytes.Compare(expected, output.Bytes()) != 0 {
+		t.Fatalf(`Unmatched:
+
+%s`, diff.LineDiff(string(expected), output.String()))
+	}
+}

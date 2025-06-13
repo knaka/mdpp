@@ -29,6 +29,9 @@ func mdppMain(args []string) error {
 	var inPlace bool
 	commandLine.BoolVarP(&inPlace, "in-place", "i", false, "Edit file(s) in place")
 
+	var debug bool
+	commandLine.BoolVarP(&debug, "debug", "d", false, "Enable debug mode")
+
 	err = commandLine.Parse(args)
 	if err != nil {
 		return fmt.Errorf("%s\nUsage of mdpp:\n%s", err.Error(), commandLine.FlagUsages())
@@ -38,6 +41,9 @@ func mdppMain(args []string) error {
 		fmt.Fprintf(os.Stdout, "Usage of mdpp:\n")
 		commandLine.PrintDefaults()
 		return nil
+	}
+	if debug {
+		mdpp.SetDebug(true)
 	}
 	args = commandLine.Args()
 	if len(args) == 0 {
