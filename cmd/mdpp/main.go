@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,61 +14,67 @@ import (
 
 	"github.com/knaka/mdpp"
 
-	. "github.com/knaka/go-utils" //revive:disable-line dot-imports
+	//revive:disable-next-line dot-imports
+	. "github.com/knaka/go-utils"
 )
 
+const appID = "mdpp"
+
+// stdinFileName is a special name for standard input.
 const stdinFileName = "-"
 
-func mdppMain(args []string) error {
-	var err error
+func showUsage(cmdln *flag.FlagSet) {
+	fmt.Fprintf(os.Stderr, "Usage: %s [options] [file...]\n", appID)
+	cmdln.SetOutput(os.Stderr)
+	cmdln.PrintDefaults()
+}
 
-	commandLine := flag.NewFlagSet("mdpp", flag.ContinueOnError)
+func mdppMain(args []string) (err error) {
+	cmdln := flag.NewFlagSet(appID, flag.ContinueOnError)
 
 	var shouldPrintHelp bool
-	commandLine.BoolVarP(&shouldPrintHelp, "help", "h", false, "Show Help")
+	cmdln.BoolVarP(&shouldPrintHelp, "help", "h", false, "Show help")
 
 	var inPlace bool
-	commandLine.BoolVarP(&inPlace, "in-place", "i", false, "Edit file(s) in place")
+	cmdln.BoolVarP(&inPlace, "in-place", "i", false, "Edit file(s) in-place")
 
-	var debug bool
-	commandLine.BoolVarP(&debug, "debug", "d", false, "Enable debug mode")
+	var debugMode bool
+	cmdln.BoolVarP(&debugMode, "debug", "d", false, "Enable debug mode")
 
-	err = commandLine.Parse(args)
+	err = cmdln.Parse(args)
 	if err != nil {
-		return fmt.Errorf("%s\nUsage of mdpp:\n%s", err.Error(), commandLine.FlagUsages())
+		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+		showUsage(cmdln)
+		return errors.New("")
 	}
 
 	if shouldPrintHelp {
-		fmt.Fprintf(os.Stdout, "Usage of mdpp:\n")
-		commandLine.PrintDefaults()
+		showUsage(cmdln)
 		return nil
 	}
-	if debug {
+	if debugMode {
 		mdpp.SetDebug(true)
 	}
-	args = commandLine.Args()
+	args = cmdln.Args()
 	if len(args) == 0 {
 		args = append(args, stdinFileName)
 	}
 	for _, inPath := range args {
-		var inDirPath string
-		if inPath == stdinFileName {
-			inDirPath = "."
-		} else {
-			inPath, err = filepath.EvalSymlinks(inPath)
-			if err != nil {
-				return fmt.Errorf("Failed to evaluate symlinks for inPath: %s Error: %v", inPath, err)
-			}
-			inDirPath = filepath.Dir(inPath)
-		}
 		err = func() error {
+			var inDirPath string
 			var inFile *os.File
 			if inPath == stdinFileName {
+				inDirPath = "."
 				if inPlace {
 					return fmt.Errorf("Cannot use in-place mode with standard input")
 				}
 				inFile = os.Stdin
 			} else {
+				inPath, err = filepath.EvalSymlinks(inPath)
+				if err != nil {
+					return fmt.Errorf("Failed to evaluate symlinks for inPath: %s Error: %v", inPath, err)
+				}
+				inDirPath = filepath.Dir(inPath)
 				inFile, err = os.Open(inPath)
 				if err != nil {
 					return fmt.Errorf("Failed to open inFile outFile: %s Error: %v", inPath, err)
@@ -76,7 +83,7 @@ func mdppMain(args []string) error {
 			}
 			var outFile *os.File
 			if inPlace {
-				outFile, err = os.CreateTemp("", "mdpp")
+				outFile, err = os.CreateTemp("", appID)
 				if err != nil {
 					return fmt.Errorf("Failed to create temporary outFile: %v", err)
 				}
@@ -87,12 +94,12 @@ func mdppMain(args []string) error {
 			} else {
 				outFile = os.Stdout
 			}
-			bufOut := bufio.NewWriter(outFile)
 			var sourceMD []byte
 			sourceMD, err = io.ReadAll(inFile)
 			if err != nil {
 				return fmt.Errorf("Failed to read inFile: %s Error: %v", inPath, err)
 			}
+			bufOut := bufio.NewWriter(outFile)
 			err = mdpp.Process(sourceMD, bufOut, inDirPath)
 			if err != nil {
 				return fmt.Errorf("Failed to preprocess: %v", err)
@@ -110,7 +117,7 @@ func mdppMain(args []string) error {
 			if outFile != os.Stdout {
 				err = outFile.Close()
 				if err != nil {
-					return nil
+					return fmt.Errorf("Failed to close outFile: %s Error: %v", outFile.Name(), err)
 				}
 			}
 			if inPlace {
@@ -123,6 +130,7 @@ func mdppMain(args []string) error {
 				if bytes.Equal(sourceMD, outContent) {
 					return nil
 				}
+				// Replace the original file with the output file
 				err = os.Rename(outFile.Name(), inPath)
 				if err != nil {
 					return fmt.Errorf("Failed to rename temporary outFile to inPath: %s Error: %v", inPath, err)
@@ -131,10 +139,10 @@ func mdppMain(args []string) error {
 			return nil
 		}()
 		if err != nil {
-			return fmt.Errorf("Failed to preprocess: %v", err)
+			break
 		}
 	}
-	return nil
+	return err
 }
 
 func main() {
