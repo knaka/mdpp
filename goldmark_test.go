@@ -33,7 +33,7 @@ bar
 
 <!-- baz -->
 `)
-	mdTree := gmParse(sourceMD)
+	mdTree, _ := gmParse(sourceMD)
 	gmast.Walk(mdTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {
 			return gmast.WalkContinue, nil

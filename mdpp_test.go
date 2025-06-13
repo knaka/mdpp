@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/andreyvit/diff"
+	"github.com/stretchr/testify/assert"
 
 	. "github.com/knaka/go-utils"
 )
@@ -245,7 +246,7 @@ func _TestIncludes(t *testing.T) {
 	}
 }
 
-func TestTitle(t *testing.T) {
+func TestTitleOld(t *testing.T) {
 	input1 := bytes.NewBufferString(`---
 title: My Title
 ---
@@ -256,7 +257,7 @@ title: My Title
 	}
 }
 
-func TestTitle2(t *testing.T) {
+func TestNotTitle(t *testing.T) {
 	input1 := bytes.NewBufferString(`---
 
 ---
@@ -403,7 +404,9 @@ func TestIndexRec(t *testing.T) {
 	}
 }
 
-func TestTable(t *testing.T) {
+// Tests above are for the old version of the library.
+
+func TestMillerTable(t *testing.T) {
 	input := bytes.NewBufferString(`Table:
 
 | Item | UnitPrice | Count | Total |
@@ -439,7 +442,7 @@ func TestTable(t *testing.T) {
 	}
 }
 
-func TestTableMlr(t *testing.T) {
+func TestPrefixedMillerTable(t *testing.T) {
 	tests := []struct {
 		run        bool
 		name       string
@@ -523,20 +526,116 @@ bar
 	}
 }
 
-// func TestLinksOld(t *testing.T) {
-// 	input := bytes.NewBufferString(`Links:
+func TestTitle(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		expected string
+	}{
+		{
+			name: "Lowercase Title",
+			input: []byte(`---
+title: My Title
+---
 
-// Inline-links []()<!-- +LINK misc/foo.md -->
-// and []()<!-- +LINK misc/bar.md --> works.
+foo
+
+bar
+`),
+			expected: "My Title",
+		},
+		{
+			name: "Uppercase Title",
+			input: []byte(`---
+Title: My Title
+---
+
+foo
+
+bar
+`),
+			expected: "My Title",
+		},
+		{
+			name: "Header Title",
+			input: []byte(`# The Title
+
+hoge fuga
+`),
+			expected: "The Title",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			title := getMDTitle(tt.input, "default")
+			assert.Equal(t, tt.expected, title, "Could not find title")
+		})
+	}
+}
+
+func TestLinksNew(t *testing.T) {
+	input := bytes.NewBufferString(`Links:
+
+Inline-links []()<!-- +LINK: misc/foo.md -->
+and []()<!-- +LINK: misc/bar.md --> works.
+`)
+	expected := []byte(`Links:
+
+Inline-links [misc/foo.md](misc/foo.md)<!-- +LINK: misc/foo.md -->
+and [Bar ドキュメント](misc/bar.md)<!-- +LINK: misc/bar.md --> works.
+`)
+	writer := bytes.NewBuffer(nil)
+	V0(Process(input.Bytes(), writer, "."))
+	if bytes.Compare(expected, writer.Bytes()) != 0 {
+		t.Fatalf(`Unmatched:
+%s`, diff.LineDiff(string(expected), writer.String()))
+	}
+}
+
+// func TestCodeBlock(t *testing.T) {
+// 	input := bytes.NewBufferString(`Code block:
+
+// 			hello
+
+// 			world
+
+// <!-- +CODE misc/hello.c -->
+
+// * foo
+
+//       foo
+
+//       bar
+
+// 	<!-- +CODE misc/hello.c -->
+
+// Done.
 // `)
-// 	expected := []byte(`Links:
+// 	expected := []byte(`Code block:
 
-// Inline-links [misc/foo.md](misc/foo.md)<!-- +LINK misc/foo.md -->
-// and [Bar ドキュメント](misc/bar.md)<!-- +LINK misc/bar.md --> works.
+// <!-- mdppcode src=misc/hello.c -->
+
+// 			#include <stdio.h>
+
+// 			int main (int argc, char** argv) {
+// 				printf("Hello!\n");
+// 			}
+
+// * foo
+
+//   <!-- mdppcode src=misc/hello.c -->
+
+//       #include <stdio.h>
+
+//       int main (int argc, char** argv) {
+//       	printf("Hello!\n");
+//       }
+
+// Done.
 // `)
 // 	output := bytes.NewBuffer(nil)
 // 	if err := PreprocessWithoutDir(output, input); err != nil {
-// 		t.Fatal(err.Error())
+// 		t.Fatal("error")
 // 	}
 // 	if bytes.Compare(expected, output.Bytes()) != 0 {
 // 		t.Fatalf(`Unmatched:
@@ -544,56 +643,3 @@ bar
 // %s`, diff.LineDiff(string(expected), output.String()))
 // 	}
 // }
-
-func TestCodeBlock(t *testing.T) {
-	input := bytes.NewBufferString(`Code block:
-
-			hello
-	
-			world
-
-<!-- +CODE misc/hello.c -->
-
-* foo
-
-      foo
-
-      bar
-	
-	<!-- +CODE misc/hello.c -->
-
-Done.
-`)
-	expected := []byte(`Code block:
-
-<!-- mdppcode src=misc/hello.c -->
-
-
-			#include <stdio.h>
-			
-			int main (int argc, char** argv) {
-				printf("Hello!\n");
-			}
-
-* foo
-
-  <!-- mdppcode src=misc/hello.c -->
-
-      #include <stdio.h>
-      
-      int main (int argc, char** argv) {
-      	printf("Hello!\n");
-      }
-
-Done.
-`)
-	output := bytes.NewBuffer(nil)
-	if err := PreprocessWithoutDir(output, input); err != nil {
-		t.Fatal("error")
-	}
-	if bytes.Compare(expected, output.Bytes()) != 0 {
-		t.Fatalf(`Unmatched:
-
-%s`, diff.LineDiff(string(expected), output.String()))
-	}
-}

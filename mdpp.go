@@ -19,15 +19,13 @@ import (
 	"github.com/yuin/goldmark"
 	gm "github.com/yuin/goldmark"
 	gmmeta "github.com/yuin/goldmark-meta"
-	meta "github.com/yuin/goldmark-meta"
 	"github.com/yuin/goldmark/ast"
 	gmast "github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
-	extast "github.com/yuin/goldmark/extension/ast"
+	gmextast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/parser"
 	gmparser "github.com/yuin/goldmark/parser"
-	dmtext "github.com/yuin/goldmark/text"
-	mtext "github.com/yuin/goldmark/text"
+	gmtext "github.com/yuin/goldmark/text"
 
 	. "github.com/knaka/go-utils"
 )
@@ -115,7 +113,7 @@ func writeFileWithIndent(writer io.Writer, pathForCodeBlock string, indent strin
 }
 
 func writeStrBeforeSegmentsStart(writer io.Writer, source []byte,
-	position int, segments *mtext.Segments, fix int) (int, error) {
+	position int, segments *gmtext.Segments, fix int) (int, error) {
 	firstSegment := segments.At(0)
 	buf := source[position : firstSegment.Start+fix]
 	if _, err := writer.Write(buf); err != nil {
@@ -129,7 +127,7 @@ func writeStrBeforeSegmentsStop(
 	writer io.Writer,
 	source []byte,
 	position int,
-	segments *mtext.Segments,
+	segments *gmtext.Segments,
 ) (int, error) {
 	lastSegment := segments.At(segments.Len() - 1)
 	buf := source[position:lastSegment.Stop]
@@ -324,16 +322,16 @@ func PreprocessOld(writerOut io.Writer, reader io.Reader,
 			}
 		case ast.KindParagraph:
 			break
-		case extast.KindTable:
-			table, ok := node.(*extast.Table)
+		case gmextast.KindTable:
+			table, ok := node.(*gmextast.Table)
 			if !ok {
 				return ast.WalkStop, errors.New("failed to downcast table")
 			}
 			lines := table.FirstChild().Lines()
 			// lines := table.Lines()
 			println("lines", lines.Len())
-		case extast.KindTableHeader:
-			header, ok := node.(*extast.TableHeader)
+		case gmextast.KindTableHeader:
+			header, ok := node.(*gmextast.TableHeader)
 			if !ok {
 				return ast.WalkStop, errors.New("failed to downcast table header")
 			}
@@ -369,13 +367,13 @@ func PreprocessOld(writerOut io.Writer, reader io.Reader,
 	}
 	markdown := goldmark.New(
 		goldmark.WithExtensions(
-			meta.Meta, // Enable meta extension to parse metadata of the Markdown document
+			gmmeta.Meta, // Enable meta extension to parse metadata of the Markdown document
 			extension.Table,
 		),
 	)
 	context := parser.NewContext()
 	parserOption := parser.WithContext(context)
-	doc := markdown.Parser().Parse(mtext.NewReader(source), parserOption)
+	doc := markdown.Parser().Parse(gmtext.NewReader(source), parserOption)
 	// doc.Dump(source, 0)
 	if err := ast.Walk(doc, walker); err != nil {
 		return foundMdppDirective, changed, err
@@ -397,7 +395,7 @@ func PreprocessOld(writerOut io.Writer, reader io.Reader,
 	return foundMdppDirective, changed, nil
 }
 
-func getIndentBeforeSegment(segment mtext.Segment, source []byte) string {
+func getIndentBeforeSegment(segment gmtext.Segment, source []byte) string {
 	indent := ""
 	for i := segment.Start - 1; i >= 0; i-- {
 		r := rune(source[i])
@@ -420,10 +418,12 @@ var gmParser = sync.OnceValue(func() gmparser.Parser {
 	).Parser()
 })
 
-// gmParse parses the given Markdown source and returns the AST.
-func gmParse(source []byte) gmast.Node {
-	// Parse the Markdown source into an AST
-	return gmParser().Parse(dmtext.NewReader(source))
+// gmParse parses the given Markdown source and returns the AST and context.
+func gmParse(source []byte) (gmTree gmast.Node, gmContext gmparser.Context) {
+	gmContext = gmparser.NewContext()
+	// gmparser.WithInlineParsers(),
+	gmTree = gmParser().Parse(gmtext.NewReader(source), gmparser.WithContext(gmContext))
+	return gmTree, gmContext
 }
 
 var regexpMillerDirective = sync.OnceValue(func() *regexp.Regexp {
@@ -443,6 +443,15 @@ var regexpMillerDirective = sync.OnceValue(func() *regexp.Regexp {
 
 // millerScriptIndex is the index of the Miller script in the matches of the Miller directive regex.
 const millerScriptIndex = 2
+
+var regexpLinkDirective = sync.OnceValue(func() *regexp.Regexp {
+	// Matches the LINK directive in HTML comments, e.g.:
+	//
+	//   <!-- +LINK: ./foo.md -->
+	return regexp.MustCompile(`^<!--\s*\+LINK:\s*([^-]+?)\s*(-->\s*)?$`)
+})
+
+const linkIndex = 1
 
 // getPrefixStart returns the prefix of the line at the given start position in the source markdown.
 func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
@@ -468,7 +477,54 @@ func SetDebug(d bool) {
 	debug = d
 }
 
-// Process processes the source markdown, identifies directives in HTML blocks, applies modifications, and writes the result to the writer.
+func getMDTitle(source []byte, defaultTitle string) string {
+	gmTree, gmContext := gmParse(source)
+	m := gmmeta.Get(gmContext)
+	if m != nil {
+		for k, v := range m {
+			if strings.ToLower(k) == "title" && v != nil {
+				if titleStr, ok := v.(string); ok && titleStr != "" {
+					return titleStr
+				}
+			}
+		}
+	}
+	title := ""
+	gmast.Walk(gmTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
+		if !entering {
+			return gmast.WalkContinue, nil
+		}
+		if node.Kind() == gmast.KindHeading {
+			heading, ok := node.(*gmast.Heading)
+			if !ok {
+				return gmast.WalkStop, errors.New("failed to downcast heading")
+			}
+			if heading.Level == 1 {
+				// Return the first level 1 heading as the title
+				if heading.Lines().Len() > 0 {
+					title = string(heading.Lines().Value(source))
+					return gmast.WalkStop, nil
+				}
+			}
+		}
+		return gmast.WalkContinue, nil
+	})
+	if title != "" {
+		return title
+	}
+	return defaultTitle
+}
+
+// Process parses the source markdown, detects directives in HTML comments, applies modifications, and writes the result to the writer.
+//
+// Supported directives:
+//   - MLR | MILLER : Processes the table above the comment using a Miller script.
+//   - LINK : Replaces the link with the title from the target Markdown file.
+//
+// Planned features:
+//   - TITLE | EXTRACT_TITLE : Extract the title from the linked Markdown file and use it as the link title.
+//   - CODE : Reads the content of the file specified and writes it as a code block.
+//   - TBLFM (?)
 func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 	if len(dirPath) > 0 {
 		currentDir, err := os.Getwd()
@@ -482,7 +538,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 			return fmt.Errorf("failed to change directory to %s: %w", dirPath, err)
 		}
 	}
-	gmTree := gmParse(sourceMD)
+	gmTree, _ := gmParse(sourceMD)
 	if debug {
 		gmTree.Dump(sourceMD, 0)
 	}
@@ -499,7 +555,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 			}
 			text := string(htmlBlockLines.Value(sourceMD))
 			// MLR directive
-			if matches := regexpMillerDirective().FindStringSubmatch(text); len(matches) >= 2 {
+			if matches := regexpMillerDirective().FindStringSubmatch(text); len(matches) > 0 {
 				mlrScript := matches[millerScriptIndex]
 				prevNode := node.PreviousSibling()
 				if prevNode.Kind() != gmast.KindParagraph {
@@ -534,6 +590,39 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 					pos = htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
 					_ = V(writer.Write(sourceMD[tableEnd+1 : pos]))
 				}()
+			}
+		case gmast.KindRawHTML:
+			rawHTML, ok := node.(*gmast.RawHTML)
+			if !ok {
+				return gmast.WalkStop, errors.New("failed to downcast raw HTML")
+			}
+			segments := rawHTML.Segments
+			if segments.Len() == 0 {
+				break
+			}
+			text := string(segments.Value(sourceMD))
+			if matches := regexpLinkDirective().FindStringSubmatch(text); len(matches) > 0 {
+				linkPath := matches[linkIndex]
+				prevNode := node.PreviousSibling()
+				if prevNode.Kind() != gmast.KindLink {
+					break
+				}
+				targetMDContent, err := os.ReadFile(linkPath)
+				if err != nil {
+					break
+				}
+				title := getMDTitle(targetMDContent, linkPath)
+				cmtStart := segments.At(0).Start
+				i := cmtStart - 1
+				for ; i > 0; i-- {
+					if sourceMD[i] == '[' && (i == 0 || sourceMD[i-1] != '\\') {
+						break
+					}
+				}
+				_ = V(writer.Write(sourceMD[pos:i]))
+				pos = segments.At(segments.Len() - 1).Stop
+				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
+				_ = V(writer.Write(sourceMD[cmtStart:pos]))
 			}
 		}
 		return gmast.WalkContinue, nil
