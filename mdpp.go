@@ -444,13 +444,6 @@ var regexpMillerDirective = sync.OnceValue(func() *regexp.Regexp {
 // millerScriptIndex is the index of the Miller script in the matches of the Miller directive regex.
 const millerScriptIndex = 2
 
-var regexpLinkDirective = sync.OnceValue(func() *regexp.Regexp {
-	// Matches the LINK directive in HTML comments, e.g.:
-	//
-	//   <!-- +LINK: ./foo.md -->
-	return regexp.MustCompile(`^<!--\s*\+LINK:\s*([^-]+?)\s*(-->\s*)?$`)
-})
-
 var regexpSyncTitleDirective = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`(?i)^<!--\s*\+(SYNC_TITLE|TITLE)\s*(-->\s*)?$`)
 })
@@ -607,7 +600,6 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 				break
 			}
 			text := string(segments.Value(sourceMD))
-			var linkPathOpt *string
 			// +TITLE directive gets the link path from the previous link node
 			if matches := regexpSyncTitleDirective().FindStringSubmatch(text); len(matches) > 0 {
 				prevNode := node.PreviousSibling()
@@ -616,22 +608,11 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 				}
 				linkNode, _ := prevNode.(*gmast.Link)
 				linkPath := string(linkNode.Destination)
-				linkPathOpt = &linkPath
-			} else
-			// +LINK directive
-			if matches := regexpLinkDirective().FindStringSubmatch(text); len(matches) > 0 {
-				linkPathOpt = &matches[linkIndex]
-				prevNode := node.PreviousSibling()
-				if prevNode == nil || prevNode.Kind() != gmast.KindLink {
-					break
-				}
-			}
-			if linkPathOpt != nil {
-				targetMD, err := os.ReadFile(*linkPathOpt)
+				targetMD, err := os.ReadFile(linkPath)
 				if err != nil {
 					break
 				}
-				title := getMDTitle(targetMD, *linkPathOpt)
+				title := getMDTitle(targetMD, linkPath)
 				cmtStart := segments.At(0).Start
 				linkStart := cmtStart - 1
 				for ; linkStart >= 0; linkStart-- {
@@ -640,7 +621,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPath string) error {
 					}
 				}
 				_ = V(writer.Write(sourceMD[pos:linkStart]))
-				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, *linkPathOpt))
+				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
 				pos = segments.At(segments.Len() - 1).Stop
 				_ = V(writer.Write(sourceMD[cmtStart:pos]))
 			}

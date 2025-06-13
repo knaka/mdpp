@@ -526,7 +526,7 @@ bar
 	}
 }
 
-func TestTitle(t *testing.T) {
+func TestTitleExtraction(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    []byte
@@ -573,35 +573,16 @@ hoge fuga
 	}
 }
 
-func TestLinksNew(t *testing.T) {
-	input := bytes.NewBufferString(`Links:
-
-Inline-links []()<!-- +LINK: misc/foo.md -->
-and []()<!-- +LINK: misc/bar.md --> works.
-`)
-	expected := []byte(`Links:
-
-Inline-links [foo](misc/foo.md)<!-- +LINK: misc/foo.md -->
-and [Bar ドキュメント](misc/bar.md)<!-- +LINK: misc/bar.md --> works.
-`)
-	writer := bytes.NewBuffer(nil)
-	V0(Process(input.Bytes(), writer, "."))
-	if bytes.Compare(expected, writer.Bytes()) != 0 {
-		t.Fatalf(`Unmatched:
-%s`, diff.LineDiff(string(expected), writer.String()))
-	}
-}
-
-func TestLinkExtraction(t *testing.T) {
+func TestSyncTitle(t *testing.T) {
 	input := bytes.NewBufferString(`Links:
 
 Inline-links [](misc/foo.md)<!-- +TITLE -->
-and [](./misc/bar.md)<!-- +TITLE --> works.
+and [](./misc/bar.md)<!-- +SYNC_TITLE --> works.
 `)
 	expected := []byte(`Links:
 
 Inline-links [foo](misc/foo.md)<!-- +TITLE -->
-and [Bar ドキュメント](./misc/bar.md)<!-- +TITLE --> works.
+and [Bar ドキュメント](./misc/bar.md)<!-- +SYNC_TITLE --> works.
 `)
 	writer := bytes.NewBuffer(nil)
 	V0(Process(input.Bytes(), writer, "."))
