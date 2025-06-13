@@ -532,9 +532,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get current directory: %w", err)
 		}
-		defer func() {
-			os.Chdir(currentDir)
-		}()
+		defer os.Chdir(currentDir)
 		if err := os.Chdir(*dirPathOpt); err != nil {
 			return fmt.Errorf("failed to change directory to %s: %w", *dirPathOpt, err)
 		}
@@ -578,9 +576,12 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					mlrMDInplacePut(tempFilePath, mlrScript)
 					result := V(os.ReadFile(tempFilePath))
 					_ = V(writer.Write(sourceMD[pos:prefixStart]))
-					if tableStart == prefixStart { // No prefix
+					// No prefix
+					if tableStart == prefixStart {
 						_ = V(writer.Write(result))
-					} else { // Has a prefix
+					} else
+					// Has a prefix
+					{
 						prefixText := string(sourceMD[prefixStart:tableStart])
 						for _, line := range bytes.Split(result, []byte{'\n'}) {
 							if len(strings.TrimSpace(string(line))) > 0 {
