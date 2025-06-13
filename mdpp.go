@@ -438,7 +438,7 @@ var regexpMillerDirective = sync.OnceValue(func() *regexp.Regexp {
 	//   -->
 	//
 	// In the second case, the "closure" part is stored in the `.Closure` member of the node.
-	return regexp.MustCompile(`^<!--\s*\+(MLR|MILLER):\s*([^-]+?)\s*(-->\s*)?$`)
+	return regexp.MustCompile(`(?i)^<!--\s*\+(MLR|MILLER):\s*([^-]+?)\s*(-->\s*)?$`)
 })
 
 // millerScriptIndex is the index of the Miller script in the matches of the Miller directive regex.

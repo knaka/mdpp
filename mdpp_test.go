@@ -459,7 +459,7 @@ func TestPrefixedMillerTable(t *testing.T) {
 | Apple | 2.5 | 12 | 0 |
 | Banana | 2.0 | 5 | 0 |
 | Orange | 1.2 | 8 | 0 |
-<!-- +MLR:
+<!-- +mlr:
   $Total = $UnitPrice * $Quantity
 -->
 
@@ -472,7 +472,7 @@ bar
 | Apple | 2.5 | 12 | 30 |
 | Banana | 2.0 | 5 | 10 |
 | Orange | 1.2 | 8 | 9.6 |
-<!-- +MLR:
+<!-- +mlr:
   $Total = $UnitPrice * $Quantity
 -->
 
@@ -490,7 +490,7 @@ bar
 > | Banana | 2.0 | 5 | 0 |
 > | Orange | 1.2 | 8 | 0 |
 >
-> <!-- +MLR: $Total = $UnitPrice * $Quantity -->
+> <!-- +Miller: $Total = $UnitPrice * $Quantity -->
 
 bar
 `),
@@ -502,7 +502,7 @@ bar
 > | Banana | 2.0 | 5 | 10 |
 > | Orange | 1.2 | 8 | 9.6 |
 >
-> <!-- +MLR: $Total = $UnitPrice * $Quantity -->
+> <!-- +Miller: $Total = $UnitPrice * $Quantity -->
 
 bar
 `),
