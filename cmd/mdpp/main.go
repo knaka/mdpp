@@ -149,7 +149,7 @@ func main() {
 	Debugger()
 	err := mdppMain(os.Args[1:])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprintf(os.Stderr, "%s: %v\n", appID, err)
 		os.Exit(1)
 	}
 }
