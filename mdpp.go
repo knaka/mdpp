@@ -174,7 +174,10 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 				break
 			}
 			text := string(htmlBlockLines.Value(sourceMD))
-			// MLR directive
+			if !strings.Contains(text, "<!--") || !strings.Contains(text, "+") {
+				break
+			}
+			// +MILLER | +MLR directive
 			if matches := regexpMillerDirective().FindStringSubmatch(text); len(matches) > 0 {
 				mlrScript := matches[millerScriptIndex]
 				prevNode := node.PreviousSibling()
@@ -214,11 +217,10 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					_ = V(writer.Write(sourceMD[tableEnd+1 : pos]))
 				}()
 			} else
-			//  aaa
+			// +CODE directive
 			if matches := regexpCodeDirective().FindStringSubmatch(text); len(matches) > 0 {
-				codeSrc := matches[codeSrcIndex]
+				codePath := matches[codeSrcIndex]
 				prevNode := node.PreviousSibling()
-				println(codeSrc, prevNode.Kind())
 				// Fenced code block is OK
 				if prevNode.Kind() == gmast.KindFencedCodeBlock {
 					fencedCodeBlock, _ := prevNode.(*gmast.FencedCodeBlock)
@@ -234,6 +236,9 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					outer:
 						for ; blockStop >= 0; blockStop-- {
 							if bytes.HasPrefix(sourceMD[blockStop:], []byte("```")) {
+								for blockStop > 0 && sourceMD[blockStop-1] == '`' {
+									blockStop--
+								}
 								for i := blockStop; i >= 0; i-- {
 									if i == 0 || sourceMD[i-1] == '\n' {
 										prefix = string(sourceMD[i:blockStop])
@@ -257,12 +262,11 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 							}
 						}
 					}
-					codeContent, err := os.ReadFile(codeSrc)
+					codeContent, err := os.ReadFile(codePath)
 					if err != nil {
 						break
 					}
-					x := sourceMD[pos:blockStart]
-					_ = V(writer.Write(x))
+					_ = V(writer.Write(sourceMD[pos:blockStart]))
 					pos = blockStop
 					codeLines := bytes.Split(codeContent, []byte{'\n'})
 					if len(codeLines) > 0 && len(codeLines[len(codeLines)-1]) == 0 {
@@ -271,20 +275,12 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					for _, line := range codeLines {
 						_ = V(fmt.Fprintf(writer, "%s%s\n", prefix, line))
 					}
-					y := sourceMD[pos:cmtStop]
-					_ = V(writer.Write(y))
+					_ = V(writer.Write(sourceMD[pos:cmtStop]))
 					pos = cmtStop
-
-					t := segments.Value(sourceMD)
-					println(t)
 				} else
-				// Code block is OK
+				// Code block is not implemented yet
 				if prevNode.Kind() == gmast.KindCodeBlock {
 
-				} else
-				// Otherwise, break
-				{
-					break
 				}
 			}
 		case gmast.KindRawHTML:
@@ -294,6 +290,9 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 				break
 			}
 			text := string(segments.Value(sourceMD))
+			if !strings.Contains(text, "<!--") || !strings.Contains(text, "+") {
+				break
+			}
 			// +TITLE directive gets the link path from the previous link node
 			if matches := regexpSyncTitleDirective().FindStringSubmatch(text); len(matches) > 0 {
 				prevNode := node.PreviousSibling()

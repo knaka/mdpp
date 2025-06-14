@@ -200,8 +200,8 @@ func TestCodeBlock(t *testing.T) {
 
 * foo
 
-  ` + "```" + `
-  ` + "```" + `
+  ` + "````" + `
+  ` + "````" + `
 
   <!-- +CODE: misc/hello.c -->
 `),
@@ -209,13 +209,13 @@ func TestCodeBlock(t *testing.T) {
 
 * foo
 
-  ` + "```" + `
+  ` + "````" + `
   #include <stdio.h>
   
   int main (int argc, char** argv) {
     printf("Hello!\n");
   }
-  ` + "```" + `
+  ` + "````" + `
 
   <!-- +CODE: misc/hello.c -->
 `),
