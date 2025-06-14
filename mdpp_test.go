@@ -132,6 +132,18 @@ hoge fuga
 `),
 			expected: "The Title",
 		},
+		{
+			name: "Multiple Headers",
+			input: []byte(`# The First
+
+hoge fuga
+
+# The Second
+
+foo bar
+`),
+			expected: "default",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

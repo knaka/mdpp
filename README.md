@@ -36,6 +36,11 @@ mdpp(1) is a Markdown preprocessor that synchronizes code blocks, tables, and li
 ### +SYNC_TITLE / +TITLE
 Replaces the link text with the title from the target Markdown file.
 
+> The title is determined in the following order of priority:
+> 1. The `title` property in YAML Front Matter
+> 2. The only H1 (`#`) heading in the document (if there is exactly one)
+> 3. The file name (without extension)
+
 **Input:**
 
 ````markdown
@@ -47,11 +52,6 @@ Replaces the link text with the title from the target Markdown file.
 ````markdown
 [Hello document](docs/hello.md)<!-- +SYNC_TITLE -->
 ````
-
-> The title is determined in the following order of priority:
-> 1. The `title` property in YAML Front Matter
-> 2. The first H1 (`#`) heading in the document
-> 3. The file name (without extension)
 
 ### +MILLER / +MLR
 Processes the table above the directive using a [Miller](https://miller.readthedocs.io/en/latest/) script. This feature is inspired by the `#+TBLFM: ...` line comment of Emacs Org-mode.
@@ -143,7 +143,7 @@ int main(int argc, char** argv) {
 - The output preserves the directive comments, so repeated runs are idempotent.
 - Title extraction uses the following priority:
   1. The `title` property in YAML Front Matter
-  2. The first H1 (`#`) heading in the document
+  2. The only H1 (`#`) heading in the document (if there is exactly one)
   3. The file name (without extension)
 
 # LICENSE
