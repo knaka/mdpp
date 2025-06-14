@@ -143,10 +143,9 @@ func getMDTitle(source []byte, linkPath string) string {
 // Supported directives:
 //   - SYNC_TITLE | TITLE : Extract the title from the linked Markdown file and use it as the link title.
 //   - MLR | MILLER : Processes the table above the comment using a Miller script.
+//   - CODE : Reads the content of the file specified and writes it as a code block.
 //
 // Planned features:
-//   - MLR_SRC | MILLER_SRC : Reads the Miller script from the specified file and applies it to the table above the comment.
-//   - CODE : Reads the content of the file specified and writes it as a code block.
 //   - TBLFM (?)
 func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 	if dirPathOpt != nil && *dirPathOpt != "" {

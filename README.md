@@ -9,85 +9,143 @@ mdpp(1)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![https://goreportcard.com/report/github.com/knaka/mdpp](https://goreportcard.com/badge/github.com/knaka/mdpp)](https://goreportcard.com/report/github.com/knaka/mdpp)
 
-> Japanese version is here: <!-- mdpplink href=./README-ja.md -->[mdpp(1) ドキュメント（日本語）](./README-ja.md)<!-- /mdpplink -->
-
 # NAME
 
-mdpp - Markdown preprocessor for resolving cross-references between files
+mdpp - Markdown preprocessor for cross-file code, table, and title synchronization
 
 # INSTALLATION
 
-    $ go install github.com/knaka/mdpp/cmd/mdpp@latest
+    go install github.com/knaka/mdpp/cmd/mdpp@latest
 
 # SYNOPSIS
 
-Concatenate the rewritten results and output to standard output.
+Concatenate the rewritten results and output to standard output:
 
-    mdpp input1.md input2.md > output.md
+    mdpp input1.md input2.md >output.md
 
-In-place rewriting.
+In-place rewriting:
 
     mdpp -i rewritten1.md rewritten2.md
 
 # DESCRIPTION
 
-If code from another file is inserted into a code block in a Markdown document and then the original code is rewritten, the inserted code does not automatically reflect the rewritten code. Also, if you create index of Markdown documents, any increase or decrease of the document will not be reflected. In general, it is not possible to resolve cross-references between files.
+mdpp(1) is a Markdown preprocessor that synchronizes code blocks, tables, and link titles across files using special HTML comment directives. It is designed for use in documentation build pipelines or as an editor integration to keep Markdown content up-to-date with source files and other Markdown documents.
 
-The command mdpp(1) is assumed to be called from a Makefile or similar. It rewrites the input according to the metacommands in the comments included in the input, and outputs it to the output file.
+## Supported Directives
 
-The command mdpp(1) with the `-i` (`--in-place`) option will rewrite the files in-place. It is intended to be set in the editor's “Program to be executed on save” or similar.
+### +SYNC_TITLE / +TITLE
+Replaces the link text with the title from the target Markdown file.
 
-When the code in the code block have to be rewritten to the latest content, the follwing input will give:
+> The title is determined in the following order of priority:
+> 1. The `title` property in YAML Front Matter
+> 2. The first H1 (`#`) heading in the document
+> 3. The file name (without extension)
 
-    <!-- mdppcode src=src/hello.c -->
+**Input:**
 
-        foo
-        bar
+````markdown
+[link text](docs/hello.md)<!-- +SYNC_TITLE -->
+````
 
-the following output. The metacommands in the output remain as they were in the input, so the output can be input again. Indented code blocks and fenced code blocks works.
+**Output:**
 
-    <!-- mdppcode src=src/hello.c -->
+````markdown
+[Hello document](docs/hello.md)<!-- +SYNC_TITLE -->
+````
 
-        #include <stdio.h>
+### +MILLER / +MLR
+Processes the table above the directive using a [Miller](https://miller.readthedocs.io/en/latest/) script. This feature is inspired by the `#+TBLFM: ...` line comment of Emacs Org-mode.
 
-        int main(int argc, char** argv) {
-            printf("Hello, World!");
-            return (0);
-        }
+**Input:**
 
-When mdpp(1) updates the Markdown listing of the files in a directory, the following input will:
+````markdown
+| Item | Unit Price | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 0 |
+| Banana | 2.0 | 5 | 0 |
+| Orange | 1.2 | 8 | 0 |
 
-    <!-- mdppindex pattern=docs/*.md -->
-    * [Already deleted document](docs/deleted.md)
-    * [Hello document](docs/hello.md)
-    * [World document](docs/world.md)
-    <!-- /mdppindex -->
+<!-- +MLR:
+  $Total = ${Unit Price} * $Quantity;
+-->
+````
 
-make the following output. Supported style for writing titles are YAML metadata, Pandoc title blocks, and MultiMarkdown style. If the file itself is included in the list, it will not be a link.
+**Output:**
 
-    <!-- mdppindex pattern=docs/*.md -->
-    * [Hello document](docs/hello.md)
-    * [New document](docs/new.md)
-    * [World document](docs/world.md)
-    <!-- /mdppindex -->
+````markdown
+| Item | Unit Price | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 30 |
+| Banana | 2.0 | 5 | 10 |
+| Orange | 1.2 | 8 | 9.6 |
 
-As an example of an in-place setting, VSCode's plugin “[Run on Save](https://marketplace.visualstudio.com/items?itemName=pucelle.run-on-save)” will automatically run when saving a Markdown file. To run it automatically when saving a Markdown file, the following settings are used.
+<!-- +MLR:
+  $Total = ${Unit Price} * $Quantity;
+-->
+````
 
-    "runOnSave.commands": [
-        {
-            "match": ".*\\.md$",
-            "command": "mdpp --in-place ${file}",
-            "runIn": "backend",
-            "runningStatusMessage": "Rewriting: ${fileBasename}",
-            "finishStatusMessage": "Done: ${fileBasename}"
-        },
-        {}
-    ],
+### +CODE
+Inserts the contents of an external file into a fenced code block.
 
-Link to markdown. Input:
+**Input:**
 
-    It is described in the “<!-- mdpplink href=hello.md -->...<!-- /mdpplink -->.”
+````markdown
+```
+foo
+bar
+```
 
-Output:
+<!-- +CODE: path/to/file.c -->
+````
 
-    It is described in the “<!-- mdpplink href=hello.md -->Hello Document<!-- /mdpplink -->.”
+**Output (after running mdpp):**
+
+````markdown
+```
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+    printf("Hello, World!\n");
+    return 0;
+}
+```
+
+<!-- +CODE: path/to/file.c -->
+````
+
+# USAGE EXAMPLES
+
+- Write to standard output:
+
+      mdpp README.md >README.out.md
+
+- In-place update (for editor integration):
+
+      mdpp -i README.md
+
+> For in-place usage, VSCode's plugin “[Run on Save](https://github.com/emeraldwalk/vscode-runonsave)” can automatically run mdpp when saving a Markdown file. Example settings:
+>
+> ```json
+> "emeraldwalk.runonsave": {
+>   "commands": [
+>     {
+>       "match": "\\.md$",
+>       "cmd": "mdpp -i ${file}"
+>     }
+>   ]
+> },
+> ```
+
+# NOTES
+
+- Directives must be written as HTML comments immediately after the relevant code block, table block, or link inline-element.
+- Directive names are case-insensitive.
+- The output preserves the directive comments, so repeated runs are idempotent.
+- Title extraction uses the following priority:
+  1. The `title` property in YAML Front Matter
+  2. The first H1 (`#`) heading in the document
+  3. The file name (without extension)
+
+# LICENSE
+
+MIT License
