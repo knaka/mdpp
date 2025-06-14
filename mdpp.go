@@ -17,6 +17,7 @@ import (
 	gmparser "github.com/yuin/goldmark/parser"
 	gmtext "github.com/yuin/goldmark/text"
 
+	//revive:disable-next-line dot-imports
 	. "github.com/knaka/go-utils"
 )
 
