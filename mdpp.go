@@ -252,6 +252,17 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 										break outer
 									}
 								}
+							} else if bytes.HasPrefix(sourceMD[blockStop:], []byte("~~~")) {
+								for blockStop > 0 && sourceMD[blockStop-1] == '~' {
+									blockStop--
+								}
+								for i := blockStop; i >= 0; i-- {
+									if i == 0 || sourceMD[i-1] == '\n' {
+										prefix = string(sourceMD[i:blockStop])
+										blockStop = i
+										break outer
+									}
+								}
 							}
 						}
 						blockStart = blockStop
@@ -263,6 +274,9 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 						blockStop = segments.At(segments.Len() - 1).Stop
 						for i := blockStop; i < len(sourceMD); i++ {
 							if sourceMD[i] == '`' {
+								prefix = string(sourceMD[blockStop:i])
+								break
+							} else if sourceMD[i] == '~' {
 								prefix = string(sourceMD[blockStop:i])
 								break
 							}
@@ -294,12 +308,12 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					cmtStop := htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
 					blockStart := segments.At(0).Start
 					blockStop := segments.At(segments.Len() - 1).Stop
-					
+
 					// Find the start of the line containing the first segment
 					for blockStart > 0 && sourceMD[blockStart-1] != '\n' {
 						blockStart--
 					}
-					
+
 					// Get the indentation prefix from the first line
 					prefix := ""
 					firstLineStart := segments.At(0).Start
@@ -310,7 +324,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 							break
 						}
 					}
-					
+
 					codeContent, err := os.ReadFile(codePath)
 					if err != nil {
 						break

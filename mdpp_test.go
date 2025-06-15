@@ -256,6 +256,34 @@ func TestCodeBlock(t *testing.T) {
   <!-- +CODE: misc/hello.c -->
 `),
 		},
+		{
+			name: "tilde fenced code block",
+			input: []byte(`Code block:
+
+* foo
+
+  ~~~
+  foo
+  bar
+  ~~~
+
+  <!-- +CODE: misc/hello.c -->
+`),
+			expected: []byte(`Code block:
+
+* foo
+
+  ~~~
+  #include <stdio.h>
+  
+  int main (int argc, char** argv) {
+    printf("Hello!\n");
+  }
+  ~~~
+
+  <!-- +CODE: misc/hello.c -->
+`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
