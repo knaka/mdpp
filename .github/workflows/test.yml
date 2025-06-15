@@ -12,7 +12,7 @@ jobs:
     steps:
     # actions/setup-go: Set up your GitHub Actions workflow with a specific version of Go https://github.com/actions/setup-go/?tab=readme-ov-file
     - name: Install Go
-      uses: actions/setup-go@v
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
         cache: true
