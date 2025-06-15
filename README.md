@@ -15,6 +15,10 @@ mdpp - Markdown preprocessor for cross-file code, table, and title synchronizati
 
 # INSTALLATION
 
+Pre-built binaries are available at [Releases](https://github.com/knaka/mdpp/releases).
+
+Build from source:
+
     go install github.com/knaka/mdpp/cmd/mdpp@latest
 
 # SYNOPSIS
