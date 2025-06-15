@@ -5,14 +5,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # go-versions/versions-manifest.json at main · actions/go-versions https://github.com/actions/go-versions/blob/main/versions-manifest.json
+        go-version: [1.24]
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     steps:
     # actions/setup-go: Set up your GitHub Actions workflow with a specific version of Go https://github.com/actions/setup-go/?tab=readme-ov-file
     - name: Install Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v
       with:
-        go-version-file: go.mod
+        go-version: ${{ matrix.go-version }}
         cache: true
     - name: Checkout code
       uses: actions/checkout@v1
