@@ -39,6 +39,7 @@ func gmParse(source []byte) (gmTree gmast.Node, gmContext gmparser.Context) {
 	return gmTree, gmContext
 }
 
+// regexpMillerDirective returns a compiled regex that matches MLR/MILLER directives in HTML comments.
 var regexpMillerDirective = sync.OnceValue(func() *regexp.Regexp {
 	// Matches the MLR directive in HTML comments, e.g.:
 	//
@@ -283,9 +284,48 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					_ = V(writer.Write(sourceMD[pos:cmtStop]))
 					pos = cmtStop
 				} else
-				// Code block is not implemented yet
+				// Indented code block
 				if prevNode.Kind() == gmast.KindCodeBlock {
-
+					codeBlock, _ := prevNode.(*gmast.CodeBlock)
+					segments := codeBlock.Lines()
+					if segments.Len() == 0 {
+						break
+					}
+					cmtStop := htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
+					blockStart := segments.At(0).Start
+					blockStop := segments.At(segments.Len() - 1).Stop
+					
+					// Find the start of the line containing the first segment
+					for blockStart > 0 && sourceMD[blockStart-1] != '\n' {
+						blockStart--
+					}
+					
+					// Get the indentation prefix from the first line
+					prefix := ""
+					firstLineStart := segments.At(0).Start
+					for i := blockStart; i < firstLineStart; i++ {
+						if sourceMD[i] == ' ' || sourceMD[i] == '\t' {
+							prefix += string(sourceMD[i])
+						} else {
+							break
+						}
+					}
+					
+					codeContent, err := os.ReadFile(codePath)
+					if err != nil {
+						break
+					}
+					_ = V(writer.Write(sourceMD[pos:blockStart]))
+					pos = blockStop
+					codeLines := bytes.Split(codeContent, []byte{'\n'})
+					if len(codeLines) > 0 && len(codeLines[len(codeLines)-1]) == 0 {
+						codeLines = codeLines[:len(codeLines)-1]
+					}
+					for _, line := range codeLines {
+						_ = V(fmt.Fprintf(writer, "%s%s\n", prefix, line))
+					}
+					_ = V(writer.Write(sourceMD[pos:cmtStop]))
+					pos = cmtStop
 				}
 			}
 		case gmast.KindRawHTML:

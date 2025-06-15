@@ -85,7 +85,7 @@ Processes the table above the directive using a [Miller](https://miller.readthed
 ````
 
 ### +CODE
-Inserts the contents of an external file into a fenced code block.
+Inserts the contents of an external file into a fenced or indented code block.
 
 **Input:**
 
@@ -94,6 +94,15 @@ Inserts the contents of an external file into a fenced code block.
 foo
 bar
 ```
+
+<!-- +CODE: path/to/file.c -->
+````
+
+**Input (indented code block):**
+
+````markdown
+    int x = 0;
+    printf("%d", x);
 
 <!-- +CODE: path/to/file.c -->
 ````
@@ -109,6 +118,19 @@ int main(int argc, char** argv) {
     return 0;
 }
 ```
+
+<!-- +CODE: path/to/file.c -->
+````
+
+**Output (indented code block):**
+
+````markdown
+    #include <stdio.h>
+    
+    int main(int argc, char** argv) {
+        printf("Hello, World!\n");
+        return 0;
+    }
 
 <!-- +CODE: path/to/file.c -->
 ````

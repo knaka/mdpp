@@ -232,6 +232,30 @@ func TestCodeBlock(t *testing.T) {
   <!-- +CODE: misc/hello.c -->
 `),
 		},
+		{
+			name: "indented code block",
+			input: []byte(`Code block:
+
+* foo
+
+      int x = 10;
+      printf("%d", x);
+
+  <!-- +CODE: misc/hello.c -->
+`),
+			expected: []byte(`Code block:
+
+* foo
+
+      #include <stdio.h>
+      
+      int main (int argc, char** argv) {
+        printf("Hello!\n");
+      }
+
+  <!-- +CODE: misc/hello.c -->
+`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
