@@ -71,8 +71,6 @@ var regexpSyncTitleDirective = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`(?i)^<!--\s*\+(SYNC_TITLE|TITLE)\s*(-->\s*)?$`)
 })
 
-const linkIndex = 1
-
 // getPrefixStart returns the prefix of the line at the given start position in the source markdown.
 func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
 	for i := blockStart; true; i-- {
