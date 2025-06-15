@@ -19,3 +19,5 @@ tmp/
 # vendor/
 .DS_Store
 __debug_*
+# Added by goreleaser init:
+dist/
