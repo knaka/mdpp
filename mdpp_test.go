@@ -156,8 +156,8 @@ foo bar
 func TestSyncTitle(t *testing.T) {
 	input := []byte(`Links:
 
-Inline-links [](misc/foo.md)<!-- +TITLE -->
-and [](./misc/bar.md)<!-- +SYNC_TITLE --> works.
+Inline-links [link [contains] brackets](misc/foo.md)<!-- +TITLE -->
+and [escaped \[ bracket](./misc/bar.md)<!-- +SYNC_TITLE --> works.
 `)
 	expected := []byte(`Links:
 

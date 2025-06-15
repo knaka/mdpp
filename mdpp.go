@@ -368,8 +368,20 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 				cmtStart := segments.At(0).Start
 				linkStart := cmtStart - 1
 				for ; linkStart >= 0; linkStart-- {
-					if sourceMD[linkStart] == '[' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
+					if sourceMD[linkStart] == '(' {
+						linkStart--
 						break
+					}
+				}
+				nest := 0
+				for ; ; linkStart-- {
+					if sourceMD[linkStart] == ']' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
+						nest++
+					} else if sourceMD[linkStart] == '[' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
+						nest--
+						if nest == 0 {
+							break
+						}
 					}
 				}
 				_ = V(writer.Write(sourceMD[pos:linkStart]))
