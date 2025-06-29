@@ -81,6 +81,7 @@ func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
 	return
 }
 
+// mkdirTemp creates a temporary directory and returns its path and a cleanup function.
 func mkdirTemp() (string, func()) {
 	tempDirPath := V(os.MkdirTemp("", "mdpp"))
 	return tempDirPath, func() {
@@ -96,18 +97,17 @@ func SetDebug(d bool) {
 }
 
 // getMDTitle extracts the title in the following order:
-// 1. From the metadata of the Markdown file.
-// 2. From the only one H1 heading in the Markdown file.
-// 3. From the file name of the Markdown file, without the `.md` extension.
+//
+//  1. From the metadata of the Markdown file.
+//  2. From the only one H1 heading in the Markdown file.
+//  3. From the file name of the Markdown file, without the `.md` extension.
 func getMDTitle(source []byte, linkPath string) string {
 	gmTree, gmContext := gmParse(source)
 	m := gmmeta.Get(gmContext)
-	if m != nil {
-		for k, v := range m {
-			if strings.ToLower(k) == "title" && v != nil {
-				if titleStr, ok := v.(string); ok && titleStr != "" {
-					return titleStr
-				}
+	for k, v := range m {
+		if strings.ToLower(k) == "title" && v != nil {
+			if titleStr, ok := v.(string); ok && titleStr != "" {
+				return titleStr
 			}
 		}
 	}
@@ -136,9 +136,7 @@ func getMDTitle(source []byte, linkPath string) string {
 		return string(h1Node.Lines().Value(source))
 	}
 	base := path.Base(linkPath)
-	if strings.HasSuffix(base, ".md") {
-		base = base[:len(base)-3]
-	}
+	base = strings.TrimSuffix(base, ".md")
 	return base
 }
 
