@@ -254,6 +254,45 @@ func processIndentedCodeBlock(sourceMD []byte, writer io.Writer, cursor int, htm
 	return cmtStop
 }
 
+// processSyncTitleDirective processes a SYNC_TITLE directive and writes the result to writer
+func processSyncTitleDirective(sourceMD []byte, writer io.Writer, cursor int, node gmast.Node, segments *gmtext.Segments) int {
+	prevNode := node.PreviousSibling()
+	if prevNode == nil || prevNode.Kind() != gmast.KindLink {
+		return cursor
+	}
+	linkNode, _ := prevNode.(*gmast.Link)
+	linkPath := string(linkNode.Destination)
+	targetMD, err := os.ReadFile(linkPath)
+	if err != nil {
+		return cursor
+	}
+	title := getMDTitle(targetMD, linkPath)
+	cmtStart := segments.At(0).Start
+	linkStart := cmtStart - 1
+	for ; linkStart >= 0; linkStart-- {
+		if sourceMD[linkStart] == '(' {
+			linkStart--
+			break
+		}
+	}
+	nest := 0
+	for ; ; linkStart-- {
+		if sourceMD[linkStart] == ']' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
+			nest++
+		} else if sourceMD[linkStart] == '[' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
+			nest--
+			if nest == 0 {
+				break
+			}
+		}
+	}
+	_ = V(writer.Write(sourceMD[cursor:linkStart]))
+	_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
+	newCursor := segments.At(segments.Len() - 1).Stop
+	_ = V(writer.Write(sourceMD[cmtStart:newCursor]))
+	return newCursor
+}
+
 var debug = false
 
 // SetDebug sets the debug mode for the package.
@@ -373,40 +412,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 			}
 			// +TITLE directive gets the link path from the previous link node
 			if matches := regexpSyncTitleDirective().FindStringSubmatch(text); len(matches) > 0 {
-				prevNode := node.PreviousSibling()
-				if prevNode == nil || prevNode.Kind() != gmast.KindLink {
-					break
-				}
-				linkNode, _ := prevNode.(*gmast.Link)
-				linkPath := string(linkNode.Destination)
-				targetMD, err := os.ReadFile(linkPath)
-				if err != nil {
-					break
-				}
-				title := getMDTitle(targetMD, linkPath)
-				cmtStart := segments.At(0).Start
-				linkStart := cmtStart - 1
-				for ; linkStart >= 0; linkStart-- {
-					if sourceMD[linkStart] == '(' {
-						linkStart--
-						break
-					}
-				}
-				nest := 0
-				for ; ; linkStart-- {
-					if sourceMD[linkStart] == ']' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
-						nest++
-					} else if sourceMD[linkStart] == '[' && (linkStart == 0 || sourceMD[linkStart-1] != '\\') {
-						nest--
-						if nest == 0 {
-							break
-						}
-					}
-				}
-				_ = V(writer.Write(sourceMD[cursor:linkStart]))
-				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
-				cursor = segments.At(segments.Len() - 1).Stop
-				_ = V(writer.Write(sourceMD[cmtStart:cursor]))
+				cursor = processSyncTitleDirective(sourceMD, writer, cursor, node, segments)
 			}
 		}
 		return gmast.WalkContinue, nil
