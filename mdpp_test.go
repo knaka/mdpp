@@ -85,7 +85,7 @@ bar
 		t.Run(tt.name, func(t *testing.T) {
 			writer := bytes.NewBuffer(nil)
 			V0(Process(tt.sourceMD, writer, nil))
-			if bytes.Compare(tt.expectedMD, writer.Bytes()) != 0 {
+			if !bytes.Equal(tt.expectedMD, writer.Bytes()) {
 				t.Fatalf(`Unmatched for %s:
 
 %s`, tt.name, diff.LineDiff(string(tt.expectedMD), writer.String()))
