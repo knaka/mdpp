@@ -71,14 +71,14 @@ var regexpSyncTitleDirective = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`(?i)^<!--\s*\+(SYNC_TITLE|TITLE)\s*(-->\s*)?$`)
 })
 
-// getPrefixStart returns the prefix of the line at the given start position in the source markdown.
+// getPrefixStart returns the BOL of the line at the given start position in the source markdown.
 func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
 	for i := blockStart; true; i-- {
-		if i == -1 || sourceMD[i] == '\n' || sourceMD[i] == '\r' {
-			return i + 1
+		if i == 0 || sourceMD[i-1] == '\n' || sourceMD[i-1] == '\r' {
+			return i
 		}
 	}
-	return
+	return // Should not be reached
 }
 
 // mkdirTemp creates a temporary directory and returns its path and a cleanup function.
@@ -87,6 +87,46 @@ func mkdirTemp() (string, func()) {
 	return tempDirPath, func() {
 		os.RemoveAll(tempDirPath)
 	}
+}
+
+// processMillerTable processes a table with Miller script and writes the result to writer
+func processMillerTable(sourceMD []byte, writer io.Writer, cursor int, node gmast.Node, htmlBlockLines *gmtext.Segments, mlrScript string) int {
+	prevNode := node.PreviousSibling()
+	if prevNode.Kind() != gmast.KindParagraph {
+		return cursor
+	}
+	tableLines := prevNode.Lines()
+	if tableLines.Len() == 0 {
+		return cursor
+	}
+	tableStart := tableLines.At(0).Start
+	tableStop := tableLines.At(tableLines.Len() - 1).Stop
+	prefixStart := getPrefixStart(sourceMD, tableStart)
+	markdownTableText := tableLines.Value(sourceMD)
+
+	tempDirPath, tempDirCleanFn := mkdirTemp()
+	defer tempDirCleanFn()
+	tempFilePath := path.Join(tempDirPath, "3202c41.md")
+	V0(os.WriteFile(tempFilePath, []byte(markdownTableText), 0600))
+	mlrMDInplacePut(tempFilePath, mlrScript)
+	result := V(os.ReadFile(tempFilePath))
+	_ = V(writer.Write(sourceMD[cursor:prefixStart]))
+	// No prefix
+	if tableStart == prefixStart {
+		_ = V(writer.Write(result))
+	} else
+	// Has a prefix
+	{
+		prefixText := string(sourceMD[prefixStart:tableStart])
+		for _, line := range bytes.Split(result, []byte{'\n'}) {
+			if len(strings.TrimSpace(string(line))) > 0 {
+				_ = V(writer.Write([]byte(prefixText + string(line) + "\n")))
+			}
+		}
+	}
+	newCursor := htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
+	_ = V(writer.Write(sourceMD[tableStop+1 : newCursor]))
+	return newCursor
 }
 
 var debug = false
@@ -164,7 +204,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 	if debug {
 		gmTree.Dump(sourceMD, 0)
 	}
-	pos := 0
+	cursor := 0
 	err := gmast.Walk(gmTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {
 			return gmast.WalkContinue, nil
@@ -182,42 +222,7 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 			// +MILLER | +MLR directive
 			if matches := regexpMillerDirective().FindStringSubmatch(text); len(matches) > 0 {
 				mlrScript := matches[millerScriptIndex]
-				prevNode := node.PreviousSibling()
-				if prevNode.Kind() != gmast.KindParagraph {
-					break
-				}
-				tableLines := prevNode.Lines()
-				if tableLines.Len() == 0 {
-					break
-				}
-				tableStart := tableLines.At(0).Start
-				tableEnd := tableLines.At(tableLines.Len() - 1).Stop
-				prefixStart := getPrefixStart(sourceMD, tableStart)
-				markdownTableText := tableLines.Value(sourceMD)
-				func() {
-					tempDirPath, tempDirCleanFn := mkdirTemp()
-					defer tempDirCleanFn()
-					tempFilePath := path.Join(tempDirPath, "3202c41.md")
-					V0(os.WriteFile(tempFilePath, []byte(markdownTableText), 0600))
-					mlrMDInplacePut(tempFilePath, mlrScript)
-					result := V(os.ReadFile(tempFilePath))
-					_ = V(writer.Write(sourceMD[pos:prefixStart]))
-					// No prefix
-					if tableStart == prefixStart {
-						_ = V(writer.Write(result))
-					} else
-					// Has a prefix
-					{
-						prefixText := string(sourceMD[prefixStart:tableStart])
-						for _, line := range bytes.Split(result, []byte{'\n'}) {
-							if len(strings.TrimSpace(string(line))) > 0 {
-								_ = V(writer.Write([]byte(prefixText + string(line) + "\n")))
-							}
-						}
-					}
-					pos = htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
-					_ = V(writer.Write(sourceMD[tableEnd+1 : pos]))
-				}()
+				cursor = processMillerTable(sourceMD, writer, cursor, node, htmlBlockLines, mlrScript)
 			} else
 			// +CODE directive
 			if matches := regexpCodeDirective().FindStringSubmatch(text); len(matches) > 0 {
@@ -282,8 +287,8 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					if err != nil {
 						break
 					}
-					_ = V(writer.Write(sourceMD[pos:blockStart]))
-					pos = blockStop
+					_ = V(writer.Write(sourceMD[cursor:blockStart]))
+					cursor = blockStop
 					codeLines := bytes.Split(codeContent, []byte{'\n'})
 					if len(codeLines) > 0 && len(codeLines[len(codeLines)-1]) == 0 {
 						codeLines = codeLines[:len(codeLines)-1]
@@ -291,8 +296,8 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					for _, line := range codeLines {
 						_ = V(fmt.Fprintf(writer, "%s%s\n", prefix, line))
 					}
-					_ = V(writer.Write(sourceMD[pos:cmtStop]))
-					pos = cmtStop
+					_ = V(writer.Write(sourceMD[cursor:cmtStop]))
+					cursor = cmtStop
 				} else
 				// Indented code block
 				if prevNode.Kind() == gmast.KindCodeBlock {
@@ -325,8 +330,8 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					if err != nil {
 						break
 					}
-					_ = V(writer.Write(sourceMD[pos:blockStart]))
-					pos = blockStop
+					_ = V(writer.Write(sourceMD[cursor:blockStart]))
+					cursor = blockStop
 					codeLines := bytes.Split(codeContent, []byte{'\n'})
 					if len(codeLines) > 0 && len(codeLines[len(codeLines)-1]) == 0 {
 						codeLines = codeLines[:len(codeLines)-1]
@@ -334,8 +339,8 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 					for _, line := range codeLines {
 						_ = V(fmt.Fprintf(writer, "%s%s\n", prefix, line))
 					}
-					_ = V(writer.Write(sourceMD[pos:cmtStop]))
-					pos = cmtStop
+					_ = V(writer.Write(sourceMD[cursor:cmtStop]))
+					cursor = cmtStop
 				}
 			}
 		case gmast.KindRawHTML:
@@ -380,16 +385,16 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 						}
 					}
 				}
-				_ = V(writer.Write(sourceMD[pos:linkStart]))
+				_ = V(writer.Write(sourceMD[cursor:linkStart]))
 				_ = V(fmt.Fprintf(writer, "[%s](%s)", title, linkPath))
-				pos = segments.At(segments.Len() - 1).Stop
-				_ = V(writer.Write(sourceMD[cmtStart:pos]))
+				cursor = segments.At(segments.Len() - 1).Stop
+				_ = V(writer.Write(sourceMD[cmtStart:cursor]))
 			}
 		}
 		return gmast.WalkContinue, nil
 	})
-	if pos < len(sourceMD) {
-		_ = V(writer.Write(sourceMD[pos:]))
+	if cursor < len(sourceMD) {
+		_ = V(writer.Write(sourceMD[cursor:]))
 	}
 	return err
 }
