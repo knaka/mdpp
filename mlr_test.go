@@ -31,7 +31,7 @@ func TestMLR(t *testing.T) {
 	V0(os.WriteFile(tempFilePath, original, 0644))
 	mlrMDInplacePut(tempFilePath, script)
 	result := V(os.ReadFile(tempFilePath))
-	if bytes.Compare(expected, result) != 0 {
+	if !bytes.Equal(expected, result) {
 		t.Fatalf("MLR test failed:\n%s", diff.LineDiff(string(expected), string(result)))
 	}
 }

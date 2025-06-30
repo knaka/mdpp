@@ -166,7 +166,7 @@ and [Bar ドキュメント](./misc/bar.md)<!-- +SYNC_TITLE --> works.
 `)
 	writer := bytes.NewBuffer(nil)
 	V0(Process(input, writer, nil))
-	if bytes.Compare(expected, writer.Bytes()) != 0 {
+	if !bytes.Equal(expected, writer.Bytes()) {
 		t.Fatalf(`Unmatched:
 %s`, diff.LineDiff(string(expected), writer.String()))
 	}
@@ -291,7 +291,7 @@ func TestCodeBlock(t *testing.T) {
 			if err := Process(tt.input, output, nil); err != nil {
 				t.Fatal("error")
 			}
-			if bytes.Compare(tt.expected, output.Bytes()) != 0 {
+			if !bytes.Equal(tt.expected, output.Bytes()) {
 				t.Fatalf(`Unmatched:\n\n%s`, diff.LineDiff(string(tt.expected), output.String()))
 			}
 		})
