@@ -1,19 +1,13 @@
----
-title: Document for mdpp(1)
----
-
-mdpp(1)
+# mdpp(1)
 
 [![https://pkg.go.dev/github.com/knaka/mdpp](https://pkg.go.dev/badge/github.com/knaka/mdpp.svg)](https://pkg.go.dev/github.com/knaka/mdpp)
 [![Actions: Result](https://github.com/knaka/mdpp/actions/workflows/test.yml/badge.svg)](https://github.com/knaka/mdpp/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![https://goreportcard.com/report/github.com/knaka/mdpp](https://goreportcard.com/badge/github.com/knaka/mdpp)](https://goreportcard.com/report/github.com/knaka/mdpp)
 
-# NAME
+Markdown preprocessor for cross-file code, table, title synchronization, and file inclusion. Processing is idempotent.
 
-mdpp - Markdown preprocessor for cross-file code, table, and title synchronization
-
-# INSTALLATION
+## INSTALLATION
 
 Pre-built binaries are available at [Releases](https://github.com/knaka/mdpp/releases).
 
@@ -21,7 +15,7 @@ Build from source:
 
     go install github.com/knaka/mdpp/cmd/mdpp@latest
 
-# SYNOPSIS
+## SYNOPSIS
 
 Concatenate the rewritten results and output to standard output:
 
@@ -31,13 +25,13 @@ In-place rewriting:
 
     mdpp -i rewritten1.md rewritten2.md
 
-# DESCRIPTION
+## DESCRIPTION
 
-mdpp(1) is a Markdown preprocessor that synchronizes code blocks, tables, and link titles across files using special HTML comment directives. It is designed for use in documentation build pipelines or as an editor integration to keep Markdown content up-to-date with source files and other Markdown documents.
+mdpp(1) is a Markdown preprocessor that synchronizes code blocks, tables, and link titles across files, and includes external Markdown files using special HTML comment directives. It is designed for use in documentation build pipelines or as an editor integration to keep Markdown content up-to-date with source files and other Markdown documents.
 
-## Supported Directives
+### Supported Directives
 
-### +SYNC_TITLE / +TITLE
+#### +SYNC_TITLE / +TITLE
 Replaces the link text with the title from the target Markdown file.
 
 > The title is determined in the following order of priority:
@@ -57,7 +51,7 @@ Replaces the link text with the title from the target Markdown file.
 [Hello document](docs/hello.md)<!-- +SYNC_TITLE -->
 ````
 
-### +MILLER / +MLR
+#### +MILLER / +MLR
 Processes the table above the directive using a [Miller](https://miller.readthedocs.io/en/latest/) script. This feature is inspired by the `#+TBLFM: ...` line comment of Emacs Org-mode.
 
 **Input:**
@@ -87,7 +81,7 @@ Processes the table above the directive using a [Miller](https://miller.readthed
   $Total = ${Unit Price} * $Quantity;
 -->
 ````
-### +INCLUDE ... +END
+#### +INCLUDE ... +END
 
 Includes the content of an external Markdown file.
 
@@ -102,7 +96,7 @@ Includes the content of an external Markdown file.
 
 ```markdown
 <!-- +INCLUDE: path/to/another.md -->
-# Content from another.md
+## Content from another.md
 
 This is the content of `another.md`.
 <!-- +END -->
@@ -118,7 +112,7 @@ This is the content of `another.md`.
 - **Indented directives**: The `+INCLUDE` and `+END` directives must be at the beginning of their lines (ignoring leading/trailing whitespace). Indented directives within code blocks or blockquotes are not supported.
 - **Relative path resolution**: When including a file from another directory, relative paths within the included content (such as image paths) are not automatically resolved relative to the included file's location. They remain relative to the main document's directory.
 
-### +CODE
+#### +CODE
 Inserts the contents of an external file into a fenced or indented code block.
 
 **Input (fenced code block):**
@@ -169,7 +163,7 @@ int main(int argc, char** argv) {
 <!-- +CODE: path/to/file.c -->
 ````
 
-# USAGE EXAMPLES
+## USAGE EXAMPLES
 
 - Write to standard output:
 
@@ -192,9 +186,10 @@ int main(int argc, char** argv) {
 > },
 > ```
 
-# NOTES
+## NOTES
 
 - Directives must be written as HTML comments immediately after the relevant code block, table block, or link inline-element.
+- For `+INCLUDE` directives, both `+INCLUDE` and `+END` comments must be at the beginning of their lines (ignoring leading/trailing whitespace).
 - Directive names are case-insensitive.
 - The output preserves the directive comments, so repeated runs are idempotent.
 - Title extraction uses the following priority:
@@ -202,6 +197,6 @@ int main(int argc, char** argv) {
   2. The only H1 (`#`) heading in the document (if there is exactly one)
   3. The file name (without extension)
 
-# LICENSE
+## LICENSE
 
 MIT License
