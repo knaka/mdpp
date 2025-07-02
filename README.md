@@ -87,6 +87,32 @@ Processes the table above the directive using a [Miller](https://miller.readthed
   $Total = ${Unit Price} * $Quantity;
 -->
 ````
+### +INCLUDE ... +END
+
+Includes the content of an external Markdown file.
+
+**Input:**
+
+````markdown
+<!-- +INCLUDE: path/to/another.md -->
+<!-- +END -->
+````
+
+**Output (after running mdpp):**
+
+```markdown
+<!-- +INCLUDE: path/to/another.md -->
+# Content from another.md
+
+This is the content of `another.md`.
+<!-- +END -->
+```
+
+**Limitations:**
+
+- **Nested inclusion**: Files included with `+INCLUDE` are not processed for their own `+INCLUDE` directives. Only one level of inclusion is supported.
+- **Indented directives**: The `+INCLUDE` and `+END` directives must be at the beginning of their lines (ignoring leading/trailing whitespace). Indented directives within code blocks or lists are not supported.
+- **Relative path resolution**: When including a file from another directory, relative paths within the included content (such as image paths) are not automatically resolved relative to the included file's location. They remain relative to the main document's directory.
 
 ### +CODE
 Inserts the contents of an external file into a fenced or indented code block.

@@ -172,6 +172,90 @@ and [Bar ドキュメント](./misc/bar.md)<!-- +SYNC_TITLE --> works.
 	}
 }
 
+func TestIncludeDirective(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		expected []byte
+	}{
+		{
+			name: "basic include",
+			input: []byte(`# Main Document
+
+Some content before include.
+
+<!-- +INCLUDE: misc/include_test.md -->
+<!-- +END -->
+
+Some content after include.
+`),
+			expected: []byte(`# Main Document
+
+Some content before include.
+
+<!-- +INCLUDE: misc/include_test.md -->
+# Included Content
+
+This is content from an included file.
+
+## Features
+
+- Feature 1
+- Feature 2
+- Feature 3
+
+End of included content.
+<!-- +END -->
+
+Some content after include.
+`),
+		},
+		{
+			name: "include with missing file",
+			input: []byte(`# Test
+
+<!-- +INCLUDE: nonexistent.md -->
+<!-- +END -->
+
+Done.
+`),
+			expected: []byte(`# Test
+
+<!-- +INCLUDE: nonexistent.md -->
+<!-- +END -->
+
+Done.
+`),
+		},
+		{
+			name: "include without matching end",
+			input: []byte(`# Test
+
+<!-- +INCLUDE: misc/include_test.md -->
+
+Some text without END directive.
+`),
+			expected: []byte(`# Test
+
+<!-- +INCLUDE: misc/include_test.md -->
+
+Some text without END directive.
+`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := bytes.NewBuffer(nil)
+			if err := Process(tt.input, output, nil); err != nil {
+				t.Fatal("error")
+			}
+			if !bytes.Equal(tt.expected, output.Bytes()) {
+				t.Fatalf(`Unmatched:\n\n%s`, diff.LineDiff(string(tt.expected), output.String()))
+			}
+		})
+	}
+}
+
 func TestCodeBlock(t *testing.T) {
 	tests := []struct {
 		name     string

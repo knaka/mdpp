@@ -68,6 +68,19 @@ var regexpSyncTitleDirective = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`(?i)^<!--\s*\+(SYNC_TITLE|TITLE)\s*(-->\s*)?$`)
 })
 
+var regexpIncludeDirective = sync.OnceValue(func() *regexp.Regexp {
+	// Matches the INCLUDE directive in HTML comments, e.g.:
+	//
+	//   <!-- +INCLUDE: ./path/to/file.md -->
+	return regexp.MustCompile(`(?i)^<!--\s*\+INCLUDE:\s*([^ ]+?)\s*-->\s*$`)
+})
+
+const includePathIndex = 1
+
+var regexpEndDirective = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`(?i)^<!--\s*\+END\s*-->\s*$`)
+})
+
 // getPrefixStart returns the BOL of the line at the given start position in the source markdown.
 func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
 	for i := blockStart; true; i-- {
@@ -93,16 +106,62 @@ func SetDebug(d bool) {
 	debug = d
 }
 
+// processIncludeDirectives processes +INCLUDE ... +END directives and returns the modified source
+func processIncludeDirectives(sourceMD []byte) []byte {
+	lines := strings.Split(string(sourceMD), "\n")
+	var result []string
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		// Check for +INCLUDE directive
+		if matches := regexpIncludeDirective().FindStringSubmatch(strings.TrimSpace(line)); len(matches) > 0 {
+			includePath := matches[includePathIndex]
+			// Find the corresponding +END directive
+			endIndex := -1
+			for j := i + 1; j < len(lines); j++ {
+				if regexpEndDirective().MatchString(strings.TrimSpace(lines[j])) {
+					endIndex = j
+					break
+				}
+			}
+			if endIndex == -1 {
+				// No matching +END found, just add the line as-is
+				result = append(result, line)
+				continue
+			}
+			// Add the +INCLUDE directive line
+			result = append(result, line)
+			// Read and include the external file content
+			if includeContent, err := os.ReadFile(includePath); err == nil {
+				// Add the content (without trailing newline to avoid extra blank lines)
+				content := strings.TrimRight(string(includeContent), "\n")
+				if content != "" {
+					result = append(result, content)
+				}
+			}
+			// Add the +END directive line
+			result = append(result, lines[endIndex])
+			// Skip to after the +END directive
+			i = endIndex
+		} else {
+			result = append(result, line)
+		}
+	}
+	return []byte(strings.Join(result, "\n"))
+}
+
 // Process parses the source markdown, detects directives in HTML comments, applies modifications, and writes the result to the writer. If dirPathOpt is not nil, it changes the working directory to that path before processing.
 //
 // Supported directives:
+//   - INCLUDE ... END : Include the content of an external Markdown file.
 //   - SYNC_TITLE | TITLE : Extract the title from the linked Markdown file and use it as the link title.
 //   - MLR | MILLER : Processes the table above the comment using a Miller script.
 //   - CODE : Reads the content of the file specified and writes it as a code block.
 //
 // Planned features:
+//   - H1INCLUDE, H2INCLUDE, ...
 //   - TBLFM (?)
 func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
+	// Change working directory if dirPathOpt is provided.
 	if dirPathOpt != nil && *dirPathOpt != "" {
 		currentDir, err := os.Getwd()
 		if err != nil {
@@ -113,6 +172,10 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 			return fmt.Errorf("failed to change directory to %s: %w", *dirPathOpt, err)
 		}
 	}
+	// First, parse and process +INCLUDE ... +END directive
+	sourceMD = processIncludeDirectives(sourceMD)
+
+	// Then, parse the other directives
 	gmTree, _ := gmParse(sourceMD)
 	if debug {
 		gmTree.Dump(sourceMD, 0)
