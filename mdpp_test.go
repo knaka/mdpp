@@ -303,6 +303,35 @@ This file includes File A (creating a cycle):
 End of test.
 `),
 		},
+		{
+			name: "canonical path cycle detection",
+			input: []byte(`# Test Canonical Path Cycles
+
+<!-- +INCLUDE: misc/canonical_test_a.md -->
+<!-- +END -->
+
+End of canonical test.
+`),
+			expected: []byte(`# Test Canonical Path Cycles
+
+<!-- +INCLUDE: misc/canonical_test_a.md -->
+# File A (canonical test)
+
+This file includes File B using different path:
+
+<!-- +INCLUDE: misc/canonical_test_b.md -->
+# File B (canonical test)
+
+This file includes File A using different path representation:
+
+<!-- +INCLUDE: ./canonical_test_a.md -->
+<!-- +END -->
+<!-- +END -->
+<!-- +END -->
+
+End of canonical test.
+`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

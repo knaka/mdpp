@@ -5,6 +5,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -109,61 +110,102 @@ func SetDebug(d bool) {
 
 // processIncludeDirectives processes +INCLUDE ... +END directives and returns the modified source
 func processIncludeDirectives(sourceMD []byte) []byte {
-	return processIncludeDirectivesWithPath(sourceMD, make(map[string]bool))
+	return processIncludeDirectivesWithLoopDetection(sourceMD, make(map[string]bool))
 }
 
-// processIncludeDirectivesWithPath processes +INCLUDE ... +END directives with cycle detection
-func processIncludeDirectivesWithPath(sourceMD []byte, visited map[string]bool) []byte {
+// processIncludeDirectivesWithLoopDetection processes +INCLUDE ... +END directives with cycle detection
+func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[string]bool) []byte {
 	lines := strings.Split(string(sourceMD), "\n")
 	var result []string
+	includeDepth := 0 // Track nesting depth to avoid processing nested directives
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
-		// Check for +INCLUDE directive
-		if matches := regexpIncludeDirective().FindStringSubmatch(strings.TrimSpace(line)); len(matches) > 0 {
-			includePath := matches[includePathIndex]
-			// Find the corresponding +END directive
-			endIndex := -1
-			for j := i + 1; j < len(lines); j++ {
-				if regexpEndDirective().MatchString(strings.TrimSpace(lines[j])) {
-					endIndex = j
-					break
+		// Check for +INCLUDE directive only at top level (depth 0)
+		if includeDepth == 0 && regexpIncludeDirective().MatchString(strings.TrimSpace(line)) {
+			matches := regexpIncludeDirective().FindStringSubmatch(strings.TrimSpace(line))
+			if len(matches) > 0 {
+				includePath := matches[includePathIndex]
+				// Get canonical path for cycle detection
+				canonicalPath, err := filepath.Abs(includePath)
+				if err != nil {
+					// If we can't get absolute path, fall back to original path
+					canonicalPath = includePath
+				} else {
+					// Clean the path to resolve . and .. components
+					canonicalPath = filepath.Clean(canonicalPath)
 				}
-			}
-			if endIndex == -1 {
-				// No matching +END found, just add the line as-is
+				canonicalPath, err = filepath.EvalSymlinks(canonicalPath)
+				if err != nil {
+					// If we can't evaluate symlinks, fall back to original path
+					canonicalPath = includePath
+				}
+				// Find the corresponding +END directive
+				endIndex := -1
+				tempDepth := 1
+				for j := i + 1; j < len(lines); j++ {
+					if regexpIncludeDirective().MatchString(strings.TrimSpace(lines[j])) {
+						tempDepth++
+					} else if regexpEndDirective().MatchString(strings.TrimSpace(lines[j])) {
+						tempDepth--
+						if tempDepth == 0 {
+							endIndex = j
+							break
+						}
+					}
+				}
+				if endIndex == -1 {
+					// No matching +END found, just add the line as-is
+					result = append(result, line)
+					continue
+				}
+				// Add the +INCLUDE directive line
 				result = append(result, line)
-				continue
-			}
-			// Add the +INCLUDE directive line
-			result = append(result, line)
-			// Check for cycles
-			if visited[includePath] {
-				// Cycle detected, skip inclusion but preserve directives
+				// Check for cycles using canonical path
+				if visited[canonicalPath] {
+					// Cycle detected, skip inclusion but preserve directives
+					// Add content between directives as-is
+					for k := i + 1; k < endIndex; k++ {
+						result = append(result, lines[k])
+					}
+					result = append(result, lines[endIndex])
+					i = endIndex
+					continue
+				}
+				// Read and include the external file content
+				if includeContent, err := os.ReadFile(includePath); err == nil {
+					// Mark this canonical path as visited to prevent cycles
+					newVisited := make(map[string]bool)
+					maps.Copy(newVisited, visited)
+					newVisited[canonicalPath] = true
+					// Recursively process the included content for nested includes
+					processedContent := processIncludeDirectivesWithLoopDetection(includeContent, newVisited)
+					// Add the processed content (without trailing newline to avoid extra blank lines)
+					content := strings.TrimRight(string(processedContent), "\n")
+					if content != "" {
+						result = append(result, content)
+					}
+				} else {
+					// File not found, preserve existing content between directives
+					for k := i + 1; k < endIndex; k++ {
+						result = append(result, lines[k])
+					}
+				}
+				// Add the +END directive line
 				result = append(result, lines[endIndex])
+				// Skip to after the +END directive
 				i = endIndex
 				continue
 			}
-			// Read and include the external file content
-			if includeContent, err := os.ReadFile(includePath); err == nil {
-				// Mark this path as visited to prevent cycles
-				newVisited := make(map[string]bool)
-				maps.Copy(newVisited, visited)
-				newVisited[includePath] = true
-				// Recursively process the included content for nested includes
-				processedContent := processIncludeDirectivesWithPath(includeContent, newVisited)
-				// Add the processed content (without trailing newline to avoid extra blank lines)
-				content := strings.TrimRight(string(processedContent), "\n")
-				if content != "" {
-					result = append(result, content)
-				}
-			}
-			// Add the +END directive line
-			result = append(result, lines[endIndex])
-			// Skip to after the +END directive
-			i = endIndex
-		} else {
-			result = append(result, line)
 		}
+
+		// Track include depth for nested directives
+		if regexpIncludeDirective().MatchString(strings.TrimSpace(line)) {
+			includeDepth++
+		} else if regexpEndDirective().MatchString(strings.TrimSpace(line)) {
+			includeDepth--
+		}
+
+		result = append(result, line)
 	}
 	return []byte(strings.Join(result, "\n"))
 }
