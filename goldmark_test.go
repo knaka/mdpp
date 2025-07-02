@@ -3,6 +3,7 @@ package mdpp
 import (
 	"testing"
 
+	extparser "github.com/knaka/mdpp/ext/parser"
 	gmast "github.com/yuin/goldmark/ast"
 )
 
@@ -59,4 +60,46 @@ bar
 	})
 	mdTree.Dump(sourceMD, 0)
 	t.Logf("Text: %s", mdTree.Text(sourceMD))
+}
+
+func TestLinkWithSegments(t *testing.T) {
+	sourceMD := []byte(`This is a [link name](./foo.md) !
+
+And this is a ![image name](./bar.png) !
+`)
+	mdTree, _ := gmParse(sourceMD)
+	mdTree.Dump(sourceMD, 0)
+	gmast.Walk(mdTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
+		if !entering {
+			return gmast.WalkContinue, nil
+		}i
+		if link, ok := node.(*gmast.Link); ok {
+			t.Logf("Link found: Destination=%s, Title=%s", link.Destination, link.Title)
+			if segment, ok := extparser.LinkSegments[link]; ok {
+				t.Logf("  Segment: %d, %d", segment.Start, segment.Stop)
+			}
+			for c := link.FirstChild(); c != nil; c = c.NextSibling() {
+				if textNode, ok := c.(*gmast.Text); ok {
+					t.Logf("  Text: %s", textNode.Value(sourceMD))
+				} else {
+					t.Log("  Unknown")
+				}
+			}
+		}
+		if link, ok := node.(*gmast.Image); ok {
+			t.Logf("Image found: Destination=%s, Title=%s", link.Destination, link.Title)
+			if segment, ok := extparser.ImageSegments[link]; ok {
+				t.Logf("  Segment: %d, %d", segment.Start, segment.Stop)
+			}
+			for c := link.FirstChild(); c != nil; c = c.NextSibling() {
+				if textNode, ok := c.(*gmast.Text); ok {
+					t.Logf("  Text: %s", textNode.Value(sourceMD))
+				} else {
+					t.Log("  Unknown")
+				}
+			}
+		}
+		return gmast.WalkContinue, nil
+	})
+
 }
