@@ -143,9 +143,7 @@ func (s *linkParser) Trigger() []byte {
 var linkBottom = NewContextKey()
 
 // LinkSegments is LinkSegments
-var LinkSegments map[*ast.Link]text.Segment
-
-var ImageSegments map[*ast.Image]text.Segment
+var LinkSegments map[ast.Node]text.Segment
 
 func (s *linkParser) Parse(parent ast.Node, block text.Reader, pc Context) ast.Node {
 	line, segment := block.PeekLine()
@@ -227,17 +225,14 @@ func (s *linkParser) Parse(parent ast.Node, block text.Reader, pc Context) ast.N
 		link.Title = ref.Title()
 		link.Destination = ref.Destination()
 	}
+	if LinkSegments == nil {
+		LinkSegments = make(map[ast.Node]text.Segment)
+	}
 	if last.IsImage {
 		last.Parent().RemoveChild(last.Parent(), last)
 		image := ast.NewImage(link)
-		if ImageSegments == nil {
-			ImageSegments = make(map[*ast.Image]text.Segment)
-		}
-		ImageSegments[image] = text.NewSegment(last.Segment.Start, block.LineOffset())
+		LinkSegments[image] = text.NewSegment(last.Segment.Start, block.LineOffset())
 		return image
-	}
-	if LinkSegments == nil {
-		LinkSegments = make(map[*ast.Link]text.Segment)
 	}
 	LinkSegments[link] = text.NewSegment(last.Segment.Start, block.LineOffset())
 	last.Parent().RemoveChild(last.Parent(), last)
