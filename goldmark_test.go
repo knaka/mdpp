@@ -72,7 +72,7 @@ And this is a ![image name](./bar.png) !
 	gmast.Walk(mdTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {
 			return gmast.WalkContinue, nil
-		}i
+		}
 		if link, ok := node.(*gmast.Link); ok {
 			t.Logf("Link found: Destination=%s, Title=%s", link.Destination, link.Title)
 			if segment, ok := extparser.LinkSegments[link]; ok {
