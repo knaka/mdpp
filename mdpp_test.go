@@ -242,15 +242,86 @@ Some text without END directive.
 Some text without END directive.
 `),
 		},
+		{
+			name: "nested include",
+			input: []byte(`# Main Document
+
+Including nested content:
+
+<!-- +INCLUDE: misc/nested_level1.md -->
+<!-- +END -->
+
+Done.
+`),
+			expected: []byte(`# Main Document
+
+Including nested content:
+
+<!-- +INCLUDE: misc/nested_level1.md -->
+# Level 1 Content
+
+This includes content from level 2:
+
+<!-- +INCLUDE: misc/nested_level2.md -->
+## Level 2 Content
+
+This is the deepest level of nesting.
+<!-- +END -->
+
+End of level 1.
+<!-- +END -->
+
+Done.
+`),
+		},
+		{
+			name: "cyclic include detection",
+			input: []byte(`# Test Cycles
+
+<!-- +INCLUDE: misc/cycle_a.md -->
+<!-- +END -->
+
+End of test.
+`),
+			expected: []byte(`# Test Cycles
+
+<!-- +INCLUDE: misc/cycle_a.md -->
+# File A
+
+This file includes File B:
+
+<!-- +INCLUDE: misc/cycle_b.md -->
+# File B
+
+This file includes File A (creating a cycle):
+
+<!-- +INCLUDE: misc/cycle_a.md -->
+<!-- +END -->
+<!-- +END -->
+<!-- +END -->
+
+End of test.
+`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := bytes.NewBuffer(nil)
-			if err := Process(tt.input, output, nil); err != nil {
-				t.Fatal("error")
+			// First run
+			output1 := bytes.NewBuffer(nil)
+			if err := Process(tt.input, output1, nil); err != nil {
+				t.Fatal("error on first run")
 			}
-			if !bytes.Equal(tt.expected, output.Bytes()) {
-				t.Fatalf(`Unmatched:\n\n%s`, diff.LineDiff(string(tt.expected), output.String()))
+			if !bytes.Equal(tt.expected, output1.Bytes()) {
+				t.Fatalf(`Unmatched on first run:\n\n%s`, diff.LineDiff(string(tt.expected), output1.String()))
+			}
+			
+			// Second run for idempotency test
+			output2 := bytes.NewBuffer(nil)
+			if err := Process(output1.Bytes(), output2, nil); err != nil {
+				t.Fatal("error on second run")
+			}
+			if !bytes.Equal(output1.Bytes(), output2.Bytes()) {
+				t.Fatalf(`Process is not idempotent for %s:\n\n%s`, tt.name, diff.LineDiff(output1.String(), output2.String()))
 			}
 		})
 	}

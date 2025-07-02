@@ -108,10 +108,14 @@ This is the content of `another.md`.
 <!-- +END -->
 ```
 
+**Features:**
+
+- **Nested inclusion**: Files included with `+INCLUDE` can contain their own `+INCLUDE` directives, supporting multiple levels of nesting.
+- **Cycle detection**: The processor automatically detects and prevents infinite loops when files include each other in a cycle.
+
 **Limitations:**
 
-- **Nested inclusion**: Files included with `+INCLUDE` are not processed for their own `+INCLUDE` directives. Only one level of inclusion is supported.
-- **Indented directives**: The `+INCLUDE` and `+END` directives must be at the beginning of their lines (ignoring leading/trailing whitespace). Indented directives within code blocks or lists are not supported.
+- **Indented directives**: The `+INCLUDE` and `+END` directives must be at the beginning of their lines (ignoring leading/trailing whitespace). Indented directives within code blocks or blockquotes are not supported.
 - **Relative path resolution**: When including a file from another directory, relative paths within the included content (such as image paths) are not automatically resolved relative to the included file's location. They remain relative to the main document's directory.
 
 ### +CODE

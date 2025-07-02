@@ -3,6 +3,7 @@ package mdpp
 import (
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"regexp"
 	"strings"
@@ -108,6 +109,11 @@ func SetDebug(d bool) {
 
 // processIncludeDirectives processes +INCLUDE ... +END directives and returns the modified source
 func processIncludeDirectives(sourceMD []byte) []byte {
+	return processIncludeDirectivesWithPath(sourceMD, make(map[string]bool))
+}
+
+// processIncludeDirectivesWithPath processes +INCLUDE ... +END directives with cycle detection
+func processIncludeDirectivesWithPath(sourceMD []byte, visited map[string]bool) []byte {
 	lines := strings.Split(string(sourceMD), "\n")
 	var result []string
 	for i := 0; i < len(lines); i++ {
@@ -130,10 +136,23 @@ func processIncludeDirectives(sourceMD []byte) []byte {
 			}
 			// Add the +INCLUDE directive line
 			result = append(result, line)
+			// Check for cycles
+			if visited[includePath] {
+				// Cycle detected, skip inclusion but preserve directives
+				result = append(result, lines[endIndex])
+				i = endIndex
+				continue
+			}
 			// Read and include the external file content
 			if includeContent, err := os.ReadFile(includePath); err == nil {
-				// Add the content (without trailing newline to avoid extra blank lines)
-				content := strings.TrimRight(string(includeContent), "\n")
+				// Mark this path as visited to prevent cycles
+				newVisited := make(map[string]bool)
+				maps.Copy(newVisited, visited)
+				newVisited[includePath] = true
+				// Recursively process the included content for nested includes
+				processedContent := processIncludeDirectivesWithPath(includeContent, newVisited)
+				// Add the processed content (without trailing newline to avoid extra blank lines)
+				content := strings.TrimRight(string(processedContent), "\n")
 				if content != "" {
 					result = append(result, content)
 				}
