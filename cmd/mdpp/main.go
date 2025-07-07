@@ -130,10 +130,16 @@ func mdppMain(args []string) (err error) {
 				if bytes.Equal(sourceMD, outContent) {
 					return nil
 				}
-				// Replace the original file with the output file
-				err = os.Rename(outFile.Name(), inPath)
+				// Replace the original file content while preserving hard links
+				var origFile *os.File
+				origFile, err = os.OpenFile(inPath, os.O_WRONLY|os.O_TRUNC, 0)
 				if err != nil {
-					return fmt.Errorf("Failed to rename temporary outFile to inPath: %s Error: %v", inPath, err)
+					return fmt.Errorf("Failed to open original file for writing: %s Error: %v", inPath, err)
+				}
+				defer origFile.Close()
+				_, err = origFile.Write(outContent)
+				if err != nil {
+					return fmt.Errorf("Failed to write to original file: %s Error: %v", inPath, err)
 				}
 			}
 			return nil
