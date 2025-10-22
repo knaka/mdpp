@@ -9,7 +9,7 @@ import (
 
 	gmast "github.com/yuin/goldmark/ast"
 
-	//revive:disable-next-line dot-imports
+	//revive:disable-next-line:dot-imports
 	. "github.com/knaka/go-utils"
 )
 

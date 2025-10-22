@@ -14,7 +14,7 @@ import (
 
 	"github.com/knaka/mdpp"
 
-	//revive:disable-next-line dot-imports
+	//revive:disable-next-line:dot-imports
 	. "github.com/knaka/go-utils"
 )
 
@@ -70,10 +70,11 @@ func mdppMain(args []string) (err error) {
 				}
 				inFile = os.Stdin
 			} else {
-				inPath, err = filepath.EvalSymlinks(inPath)
-				if err != nil {
-					return fmt.Errorf("Failed to evaluate symlinks for inPath: %s Error: %v", inPath, err)
-				}
+				// `Process` should work in the target dir? Or the original?
+				// inPath, err = filepath.EvalSymlinks(inPath)
+				// if err != nil {
+				// 	return fmt.Errorf("Failed to evaluate symlinks for inPath: %s Error: %v", inPath, err)
+				// }
 				inDirPath = filepath.Dir(inPath)
 				inFile, err = os.Open(inPath)
 				if err != nil {
