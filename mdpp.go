@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,6 +21,8 @@ import (
 
 	//revive:disable-next-line:dot-imports
 	. "github.com/knaka/go-utils"
+
+	"github.com/knaka/go-utils/funcopt"
 )
 
 // gmParser returns a Goldmark parser.
@@ -103,20 +107,32 @@ func mkdirTemp() (string, func()) {
 	}
 }
 
-var debug = false
+// isURL checks if the given path is a URL
+func isURL(path string) bool {
+	u, err := url.Parse(path)
+	if err != nil {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
+}
 
-// SetDebug sets the debug mode for the package.
-func SetDebug(d bool) {
-	debug = d
+// fetchURL fetches content from a URL
+func fetchURL(urlStr string) ([]byte, error) {
+	resp, err := http.Get(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return io.ReadAll(resp.Body)
 }
 
 // processIncludeDirectives processes +INCLUDE ... +END directives and returns the modified source
-func processIncludeDirectives(sourceMD []byte) []byte {
-	return processIncludeDirectivesWithLoopDetection(sourceMD, make(map[string]bool))
+func processIncludeDirectives(sourceMD []byte, allowRemote bool) []byte {
+	return processIncludeDirectivesWithLoopDetection(sourceMD, make(map[string]bool), allowRemote)
 }
 
 // processIncludeDirectivesWithLoopDetection processes +INCLUDE ... +END directives with cycle detection
-func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[string]bool) []byte {
+func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[string]bool, allowRemote bool) []byte {
 	lines := strings.Split(string(sourceMD), "\n")
 	var result []string
 	includeDepth := 0 // Track nesting depth to avoid processing nested directives
@@ -127,21 +143,11 @@ func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[stri
 			matches := regexpIncludeDirective().FindStringSubmatch(strings.TrimSpace(line))
 			if len(matches) > 0 {
 				includePath := matches[includePathIndex]
-				// Get canonical path for cycle detection
-				canonicalPath, err := filepath.Abs(includePath)
-				if err != nil {
-					// If we can't get absolute path, fall back to original path
-					canonicalPath = includePath
-				} else {
-					// Clean the path to resolve . and .. components
-					canonicalPath = filepath.Clean(canonicalPath)
-				}
-				canonicalPath, err = filepath.EvalSymlinks(canonicalPath)
-				if err != nil {
-					// If we can't evaluate symlinks, fall back to original path
-					canonicalPath = includePath
-				}
-				// Find the corresponding +END directive
+				var canonicalPath string
+				var includeContent []byte
+				var err error
+
+				// Find the corresponding +END directive first
 				endIndex := -1
 				tempDepth := 1
 				for j := i + 1; j < len(lines); j++ {
@@ -160,8 +166,35 @@ func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[stri
 					result = append(result, line)
 					continue
 				}
+
 				// Add the +INCLUDE directive line
 				result = append(result, line)
+
+				// Check if includePath is a URL and allowRemote is enabled
+				if allowRemote && isURL(includePath) {
+					// Use URL as canonical path for cycle detection
+					canonicalPath = includePath
+					// Fetch content from URL
+					includeContent, err = fetchURL(includePath)
+				} else {
+					// Get canonical path for cycle detection (local file)
+					canonicalPath, err = filepath.Abs(includePath)
+					if err != nil {
+						// If we can't get absolute path, fall back to original path
+						canonicalPath = includePath
+					} else {
+						// Clean the path to resolve . and .. components
+						canonicalPath = filepath.Clean(canonicalPath)
+					}
+					canonicalPath, err = filepath.EvalSymlinks(canonicalPath)
+					if err != nil {
+						// If we can't evaluate symlinks, fall back to original path
+						canonicalPath = includePath
+					}
+					// Read local file
+					includeContent, err = os.ReadFile(includePath)
+				}
+
 				// Check for cycles using canonical path
 				if visited[canonicalPath] {
 					// Cycle detected, skip inclusion but preserve directives
@@ -173,21 +206,22 @@ func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[stri
 					i = endIndex
 					continue
 				}
-				// Read and include the external file content
-				if includeContent, err := os.ReadFile(includePath); err == nil {
+
+				// Process the content if successfully read/fetched
+				if err == nil {
 					// Mark this canonical path as visited to prevent cycles
 					newVisited := make(map[string]bool)
 					maps.Copy(newVisited, visited)
 					newVisited[canonicalPath] = true
 					// Recursively process the included content for nested includes
-					processedContent := processIncludeDirectivesWithLoopDetection(includeContent, newVisited)
+					processedContent := processIncludeDirectivesWithLoopDetection(includeContent, newVisited, allowRemote)
 					// Add the processed content (without trailing newline to avoid extra blank lines)
 					content := strings.TrimRight(string(processedContent), "\n")
 					if content != "" {
 						result = append(result, content)
 					}
 				} else {
-					// File not found, preserve existing content between directives
+					// File not found or fetch failed, preserve existing content between directives
 					for k := i + 1; k < endIndex; k++ {
 						result = append(result, lines[k])
 					}
@@ -212,6 +246,31 @@ func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[stri
 	return []byte(strings.Join(result, "\n"))
 }
 
+// processParams holds configuration parameters.
+type processParams struct {
+	verbose     bool
+	debug       bool
+	allowRemote bool
+}
+
+// Options is functional options type
+type Options []funcopt.Option[processParams]
+
+// WithVerbose sets the verbosity.
+var WithVerbose = funcopt.New(func(params *processParams, verbose bool) {
+	params.verbose = verbose
+})
+
+// WithDebug sets the debug flag.
+var WithDebug = funcopt.New(func(params *processParams, debug bool) {
+	params.debug = debug
+})
+
+// WithAllowRemote enables fetching content from remote URLs in INCLUDE directives.
+var WithAllowRemote = funcopt.New(func(params *processParams, allowRemote bool) {
+	params.allowRemote = allowRemote
+})
+
 // Process parses the source markdown, detects directives in HTML comments, applies modifications, and writes the result to the writer. If dirPathOpt is not nil, it changes the working directory to that path before processing.
 //
 // Supported directives:
@@ -223,28 +282,37 @@ func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[stri
 // Planned features:
 //   - H1INCLUDE, H2INCLUDE, ...
 //   - TBLFM (?)
-func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
+func Process(
+	sourceMD []byte,
+	writer io.Writer,
+	dirPathOpt *string,
+	opts ...funcopt.Option[processParams],
+) (err error) {
+	params := processParams{}
+	if err = funcopt.Apply(&params, opts); err != nil {
+		return
+	}
 	// Change working directory if dirPathOpt is provided.
 	if dirPathOpt != nil && *dirPathOpt != "" {
-		currentDir, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get current directory: %w", err)
+		currentDir, err2 := os.Getwd()
+		if err2 != nil {
+			return fmt.Errorf("failed to get current directory: %w", err2)
 		}
 		defer os.Chdir(currentDir)
-		if err := os.Chdir(*dirPathOpt); err != nil {
-			return fmt.Errorf("failed to change directory to %s: %w", *dirPathOpt, err)
+		if err2 := os.Chdir(*dirPathOpt); err2 != nil {
+			return fmt.Errorf("failed to change directory to %s: %w", *dirPathOpt, err2)
 		}
 	}
 	// First, parse and process +INCLUDE ... +END directive
-	sourceMD = processIncludeDirectives(sourceMD)
+	sourceMD = processIncludeDirectives(sourceMD, params.allowRemote)
 
 	// Then, parse the other directives
 	gmTree, _ := gmParse(sourceMD)
-	if debug {
+	if params.debug {
 		gmTree.Dump(sourceMD, 0)
 	}
 	cursor := 0
-	err := gmast.Walk(gmTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
+	err = gmast.Walk(gmTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {
 			return gmast.WalkContinue, nil
 		}
@@ -295,5 +363,5 @@ func Process(sourceMD []byte, writer io.Writer, dirPathOpt *string) error {
 	if cursor < len(sourceMD) {
 		_ = V(writer.Write(sourceMD[cursor:]))
 	}
-	return err
+	return
 }

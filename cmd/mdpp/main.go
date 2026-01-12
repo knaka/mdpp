@@ -41,6 +41,9 @@ func mdppMain(args []string) (err error) {
 	var debugMode bool
 	cmdln.BoolVarP(&debugMode, "debug", "d", false, "Enable debug mode")
 
+	var allowRemote bool
+	cmdln.BoolVarP(&allowRemote, "allow-remote", "r", false, "Allow fetching content from remote URLs in INCLUDE directives")
+
 	err = cmdln.Parse(args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
@@ -51,9 +54,6 @@ func mdppMain(args []string) (err error) {
 	if shouldPrintHelp {
 		showUsage(cmdln)
 		return nil
-	}
-	if debugMode {
-		mdpp.SetDebug(true)
 	}
 	args = cmdln.Args()
 	if len(args) == 0 {
@@ -101,7 +101,7 @@ func mdppMain(args []string) (err error) {
 				return fmt.Errorf("Failed to read inFile: %s Error: %v", inPath, err)
 			}
 			bufOut := bufio.NewWriter(outFile)
-			err = mdpp.Process(sourceMD, bufOut, &inDirPath)
+			err = mdpp.Process(sourceMD, bufOut, &inDirPath, mdpp.WithDebug(debugMode), mdpp.WithAllowRemote(allowRemote))
 			if err != nil {
 				return fmt.Errorf("Failed to preprocess: %v", err)
 			}

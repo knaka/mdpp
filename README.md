@@ -83,7 +83,7 @@ Processes the table above the directive using a [Miller](https://miller.readthed
 ````
 #### +INCLUDE ... +END
 
-Includes the content of an external Markdown file.
+Includes the content of an external Markdown file or remote URL.
 
 **Input:**
 
@@ -102,15 +102,32 @@ This is the content of `another.md`.
 <!-- +END -->
 ```
 
+**Remote URL support:**
+
+By default, only local files can be included. To enable fetching content from remote URLs, use the `--allow-remote` flag:
+
+```bash
+mdpp --allow-remote document.md
+```
+
+**Example with remote URL:**
+
+````markdown
+<!-- +INCLUDE: https://example.com/content.md -->
+<!-- +END -->
+````
+
 **Features:**
 
 - **Nested inclusion**: Files included with `+INCLUDE` can contain their own `+INCLUDE` directives, supporting multiple levels of nesting.
-- **Cycle detection**: The processor automatically detects and prevents infinite loops when files include each other in a cycle.
+- **Cycle detection**: The processor automatically detects and prevents infinite loops when files include each other in a cycle (works for both local files and URLs).
+- **Security**: Remote URL fetching is disabled by default and must be explicitly enabled with `--allow-remote` flag.
 
 **Limitations:**
 
 - **Indented directives**: The `+INCLUDE` and `+END` directives must be at the beginning of their lines (ignoring leading/trailing whitespace). Indented directives within code blocks or blockquotes are not supported.
 - **Relative path resolution**: When including a file from another directory, relative paths within the included content (such as image paths) are not automatically resolved relative to the included file's location. They remain relative to the main document's directory.
+- **URL schemes**: Only `http://` and `https://` URLs are supported for remote content.
 
 #### +CODE
 Inserts the contents of an external file into a fenced or indented code block.

@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.9.0
 	github.com/yuin/goldmark v1.7.8
 	github.com/yuin/goldmark-meta v1.0.0
@@ -31,7 +31,7 @@ require (
 
 require (
 	github.com/johnkerl/miller/v6 v6.13.0
-	github.com/knaka/go-utils v0.1.3
+	github.com/knaka/go-utils v0.1.12
 	github.com/sergi/go-diff v1.2.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
