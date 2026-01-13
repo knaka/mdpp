@@ -1417,7 +1417,7 @@ github_raw_fetch() {
 
 state_path="$PROJECT_DIR/.task-sh-state.json"
 
-# [<name>...] Install task-sh files.
+# [<name>...] Install task-sh files. If no name is specified, lists available files.
 subcmd_task__install() {
   local force=false
   if test "$#" -gt 0 && test "$1" = "--force"
@@ -1431,6 +1431,15 @@ subcmd_task__install() {
   resp="$(github_tree_get --owner="knaka" --repos="task-sh")"
   local latest_commit; latest_commit="$(printf "%s" "$resp" | jq -r .sha)"
   "$VERBOSE" && echo "Latest commit of \"$main_branch\" is \"$latest_commit\"." >&2
+  if test $# = 0
+  then
+    echo "Available files:" >&2
+    echo "$resp" \
+    | jq -r '.tree[] | .path' \
+    | grep -e '^[^._].*\.lib\.sh$' \
+    | sed -e 's/^/  /'
+    return
+  fi
   if ! test -r "$state_path"
   then
     echo '{}' >"$state_path"
