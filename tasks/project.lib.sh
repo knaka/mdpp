@@ -10,6 +10,14 @@ subcmd_test() {
   go test "$@"
 }
 
+# Run application with debug information.
+subcmd_run() {
+  local package=./cmd/mdpp/
+  local a_out="$TEMP_DIR/a.out$exe_ext"
+  go build -gcflags='all=-N -l' -tags=debug,nop -o "$a_out" "$package"
+  "$a_out" "$@"
+}
+
 # Update documentation files.
 task_doc() {
   mdpp --in-place --allow-remote \
