@@ -1,0 +1,14 @@
+# ShellCheck: SC1091 – Not following: (error message here) https://www.shellcheck.net/wiki/SC1091
+external-sources=true
+
+# ShellCheck: SC2119 – Use `foo "$@"` if function's `$1` should mean script's `$1`. https://www.shellcheck.net/wiki/SC2119
+disable=SC2119
+
+# ShellCheck: SC2120 – foo references arguments, but none are ever passed. https://www.shellcheck.net/wiki/SC2120
+disable=SC2120
+
+# ShellCheck: SC3043 – In POSIX sh, `local` is undefined. https://www.shellcheck.net/wiki/SC3043
+disable=SC3043
+
+# ShellCheck: SC2034 – foo appears unused. Verify it or export it. https://www.shellcheck.net/wiki/SC2034
+disable=SC2034

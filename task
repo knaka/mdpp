@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+# vim: set filetype=sh tabstop=2 shiftwidth=2 expandtab :
+# shellcheck shell=sh
+
+# Executes the shell script with the same name but with a `.sh` extension in the same directory or in the `./tasks/` directory.
+
+set -o nounset -o errexit
+
+export INITIAL_PWD="$PWD"
+export ARG0="$0"
+export ARG0BASE="${0##*/}"
+PROJECT_DIR="${0%/*}"
+if test -z "$PROJECT_DIR"
+then
+  PROJECT_DIR="$PWD"
+fi
+export PROJECT_DIR
+TASKS_DIR=
+if test -r "$PROJECT_DIR"/"$ARG0BASE".sh
+then
+  TASKS_DIR="$PROJECT_DIR"
+elif test -r "$PROJECT_DIR"/tasks/"$ARG0BASE".sh
+then
+  TASKS_DIR="$PROJECT_DIR"/tasks
+else
+  echo "Cannot find script file for $ARG0" >&2
+  exit 1
+fi
+export TASKS_DIR
+script_file_path="$TASKS_DIR"/"$ARG0BASE".sh
+for SH in /bin/dash /bin/ash /bin/bash
+do
+  # Avoid using Dash on Debian because it is built with --disable-lineno option.
+  test "$SH" = /bin/dash && test -e /etc/debian_version && continue
+  # Avoid using Bash on macOS because it is locked to version 3.* and buggy.
+  test "$SH" = "/bin/bash" && test -e /System/Library/CoreServices/SystemVersion.plist && continue
+  if test -x "$SH"
+  then
+    export SH
+    exec "$SH" "$script_file_path" "$@"
+  fi
+done
+echo "No appropriate shell found." >&2
+exit 1
