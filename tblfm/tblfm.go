@@ -28,13 +28,83 @@ func WithHeader(hasHeader bool) Option {
 
 var (
 	// Formula parser: supports $4=$2*$3 (column), @3=@2 (row), @3$4=@2$2 (cell)
-	formulaRe = regexp.MustCompile(`^(@\d+)?(\$\d+)?=(.+)$`)
+	// Also supports range syntax: @2$>..@>>$>=@1$>
+	formulaRe = regexp.MustCompile(`^((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)(?:\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?))?=(.+)$`)
 	// Find cell references like @2$3, $2, $3, $-1, $-2 (with optional row)
 	// Supports <, <<, <<< (up to 3 levels) and >, >>, >>> (up to 3 levels)
 	cellRefRe = regexp.MustCompile(`(@([-+]?\d+|<{1,3}|>{1,3}))?(\$([-+]?\d+|<{1,3}|>{1,3}))`)
 	// Find standalone row references like @2, @<, @<<, @<<< (this will also match @2$ but we process cellRefRe first)
 	rowRefRe = regexp.MustCompile(`@([-+]?\d+|<{1,3}|>{1,3})`)
+	// Parse cell position like @2$3, $4, @3
+	cellPosRe = regexp.MustCompile(`^(?:@([-+]?\d+|<{1,3}|>{1,3}))?(?:\$([-+]?\d+|<{1,3}|>{1,3}))?$`)
 )
+
+// parseCellPosition parses a cell position specification like "@2$3", "$4", "@3"
+// Returns (row, col) where -1 means "any" (not specified)
+func parseCellPosition(pos string, startRow int, tableLen int, rowLen int) (row int, col int) {
+	row = -1
+	col = -1
+
+	if pos == "" {
+		return
+	}
+
+	matches := cellPosRe.FindStringSubmatch(pos)
+	if matches == nil {
+		return
+	}
+
+	rowSpec := matches[1]
+	colSpec := matches[2]
+
+	// Parse row
+	if rowSpec != "" {
+		switch {
+		case rowSpec == "<":
+			row = startRow
+		case rowSpec == "<<":
+			row = startRow + 1
+		case rowSpec == "<<<":
+			row = startRow + 2
+		case rowSpec == ">":
+			row = tableLen - 1
+		case rowSpec == ">>":
+			row = tableLen - 2
+		case rowSpec == ">>>":
+			row = tableLen - 3
+		default:
+			rowNum, _ := strconv.Atoi(rowSpec)
+			if rowNum > 0 {
+				row = rowNum - 1 // 1-based to 0-based
+			}
+		}
+	}
+
+	// Parse column
+	if colSpec != "" {
+		switch {
+		case colSpec == "<":
+			col = 0
+		case colSpec == "<<":
+			col = 1
+		case colSpec == "<<<":
+			col = 2
+		case colSpec == ">":
+			col = rowLen - 1
+		case colSpec == ">>":
+			col = rowLen - 2
+		case colSpec == ">>>":
+			col = rowLen - 3
+		default:
+			colNum, _ := strconv.Atoi(colSpec)
+			if colNum > 0 {
+				col = colNum - 1 // 1-based to 0-based
+			}
+		}
+	}
+
+	return
+}
 
 // Apply performs table calculations using TBLFM formulas on the input 2D array and returns the modified table.
 func Apply(
@@ -60,9 +130,9 @@ func Apply(
 	}
 
 	// Determine data row start position
-	startRow := 0
+	dataStartRow := 0
 	if cfg.hasHeader {
-		startRow = 1
+		dataStartRow = 1
 	}
 
 	// Apply each formula in order
@@ -78,34 +148,64 @@ func Apply(
 			return resultTable, fmt.Errorf("invalid formula format: %s", formula)
 		}
 
-		targetRowSpec := matches[1] // e.g., "@3" or empty
-		targetColSpec := matches[2] // e.g., "$4" or empty
+		startPosSpec := matches[1] // e.g., "@2$>" or "$4" or empty
+		endPosSpec := matches[2]   // e.g., "@>>$>" or empty (if no range)
 		expression := matches[3]
 
-		// Parse target row and column specifications
-		var targetRow int = -1 // -1 means all rows
-		if targetRowSpec != "" {
-			targetRow, _ = strconv.Atoi(targetRowSpec[1:]) // Remove @ and convert
+		// Determine maximum row length for column parsing
+		maxRowLen := 0
+		for _, r := range table {
+			if len(r) > maxRowLen {
+				maxRowLen = len(r)
+			}
 		}
 
-		var targetCol int = -1 // -1 means all columns
-		if targetColSpec != "" {
-			targetCol, _ = strconv.Atoi(targetColSpec[1:]) // Remove $ and convert
+		// Parse start position
+		targetStartRow, targetStartCol := parseCellPosition(startPosSpec, dataStartRow, len(table), maxRowLen)
+
+		// Parse end position (if range specified)
+		var targetEndRow, targetEndCol int = -1, -1
+		if endPosSpec != "" {
+			targetEndRow, targetEndCol = parseCellPosition(endPosSpec, dataStartRow, len(table), maxRowLen)
+		}
+
+		// Determine target range
+		var targetRowStart, targetRowEnd int
+		var targetColStart, targetColEnd int
+
+		if endPosSpec == "" {
+			// Single cell or column/row specification
+			targetRowStart = targetStartRow
+			targetRowEnd = targetStartRow
+			targetColStart = targetStartCol
+			targetColEnd = targetStartCol
+		} else {
+			// Range specification
+			targetRowStart = targetStartRow
+			targetRowEnd = targetEndRow
+			targetColStart = targetStartCol
+			targetColEnd = targetEndCol
 		}
 
 		// Double loop: iterate over all rows and columns
-		for rowIdx := startRow; rowIdx < len(table); rowIdx++ {
+		for rowIdx := dataStartRow; rowIdx < len(table); rowIdx++ {
 			row := table[rowIdx]
 
-			// Check if this row matches the target
-			if targetRow != -1 && (rowIdx+1) != targetRow {
-				continue // Skip this row if it doesn't match the target
+			// Check if this row matches the target range
+			if targetRowStart != -1 && rowIdx < targetRowStart {
+				continue // Skip rows before start
+			}
+			if targetRowEnd != -1 && rowIdx > targetRowEnd {
+				continue // Skip rows after end
 			}
 
 			for colIdx := 0; colIdx < len(row); colIdx++ {
-				// Check if this column matches the target
-				if targetCol != -1 && (colIdx+1) != targetCol {
-					continue // Skip this column if it doesn't match the target
+				// Check if this column matches the target range
+				if targetColStart != -1 && colIdx < targetColStart {
+					continue // Skip columns before start
+				}
+				if targetColEnd != -1 && colIdx > targetColEnd {
+					continue // Skip columns after end
 				}
 
 				// This cell is a target, evaluate the expression
@@ -139,13 +239,13 @@ func Apply(
 						switch {
 						case rowSpec == "<":
 							// First data row
-							sourceRow = startRow
+							sourceRow = dataStartRow
 						case rowSpec == "<<":
 							// Second data row
-							sourceRow = startRow + 1
+							sourceRow = dataStartRow + 1
 						case rowSpec == "<<<":
 							// Third data row
-							sourceRow = startRow + 2
+							sourceRow = dataStartRow + 2
 						case rowSpec == ">":
 							// Last row
 							sourceRow = len(table) - 1
@@ -222,13 +322,13 @@ func Apply(
 					switch {
 					case rowSpec == "<":
 						// First data row
-						sourceRow = startRow
+						sourceRow = dataStartRow
 					case rowSpec == "<<":
 						// Second data row
-						sourceRow = startRow + 1
+						sourceRow = dataStartRow + 1
 					case rowSpec == "<<<":
 						// Third data row
-						sourceRow = startRow + 2
+						sourceRow = dataStartRow + 2
 					case rowSpec == ">":
 						// Last row
 						sourceRow = len(table) - 1
@@ -264,28 +364,41 @@ func Apply(
 					// If expression is empty (e.g., copying an empty cell), use empty string
 					resultStr = ""
 				} else {
-					output, err := expr.Eval(evaluableExpr, nil)
-					if err != nil {
-						return resultTable, fmt.Errorf("failed to evaluate expression '%s': %w", evaluableExpr, err)
-					}
-
-					// Convert result to string
-					switch v := output.(type) {
-					case int:
-						resultStr = strconv.Itoa(v)
-					case int64:
-						resultStr = strconv.FormatInt(v, 10)
-					case float64:
-						// Check if it's a whole number
-						if v == float64(int64(v)) {
-							resultStr = strconv.FormatInt(int64(v), 10)
+					// Try to parse as a number first
+					if num, err := strconv.ParseFloat(evaluableExpr, 64); err == nil {
+						// It's a number, use it directly
+						if num == float64(int64(num)) {
+							resultStr = strconv.FormatInt(int64(num), 10)
 						} else {
-							resultStr = strconv.FormatFloat(v, 'f', -1, 64)
+							resultStr = strconv.FormatFloat(num, 'f', -1, 64)
 						}
-					case string:
-						resultStr = v
-					default:
-						resultStr = fmt.Sprintf("%v", output)
+					} else {
+						// Try to evaluate as an expression
+						output, err := expr.Eval(evaluableExpr, nil)
+						if err != nil {
+							// If evaluation fails, it might be a plain string value from a cell reference
+							// In this case, just use the value as-is
+							resultStr = evaluableExpr
+						} else {
+							// Convert result to string
+							switch v := output.(type) {
+							case int:
+								resultStr = strconv.Itoa(v)
+							case int64:
+								resultStr = strconv.FormatInt(v, 10)
+							case float64:
+								// Check if it's a whole number
+								if v == float64(int64(v)) {
+									resultStr = strconv.FormatInt(int64(v), 10)
+								} else {
+									resultStr = strconv.FormatFloat(v, 'f', -1, 64)
+								}
+							case string:
+								resultStr = v
+							default:
+								resultStr = fmt.Sprintf("%v", output)
+							}
+						}
 					}
 				}
 

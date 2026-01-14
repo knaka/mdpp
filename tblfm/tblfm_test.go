@@ -518,6 +518,65 @@ func TestApply_RowAndColumnCopy(t *testing.T) {
 	}
 }
 
+func TestApply_Range(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    [][]string
+		formulas []string
+		expected [][]string
+	}{
+		{
+			name: "copy to range",
+			input: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", ""},
+				{"Orange", "150", "3", ""},
+				{"Total", "", "", ""},
+			},
+			formulas: []string{
+				"@2$>..@>>$>=@1$>",
+			},
+			expected: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", "Total"},
+				{"Orange", "150", "3", "Total"},
+				{"Total", "", "", ""},
+			},
+		},
+		{
+			name: "multiplication in range",
+			input: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", ""},
+				{"Orange", "150", "3", ""},
+				{"Total", "", "", ""},
+			},
+			formulas: []string{
+				"@2$>..@>>$>=$2*$3",
+			},
+			expected: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", "500"},
+				{"Orange", "150", "3", "450"},
+				{"Total", "", "", ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Apply(tt.input, tt.formulas)
+			if err != nil {
+				t.Fatalf("Apply() returned error: %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Apply() returned unexpected result\nGot:  %v\nWant: %v", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestFoo(_ *testing.T) {
 	vsumFn := expr.Function(
 		"vsum",
