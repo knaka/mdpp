@@ -64,6 +64,26 @@ var regexpMillerDirective = sync.OnceValue(func() *regexp.Regexp {
 // millerScriptIndex is the index of the Miller script in the matches of the Miller directive regex.
 const millerScriptIndex = 2
 
+// regexpTBLFMDirective returns a compiled regex that matches TBLFM directives in HTML comments.
+var regexpTBLFMDirective = sync.OnceValue(func() *regexp.Regexp {
+	// Matches the TBLFM directive in HTML comments, e.g.:
+	//
+	//   <!-- +TBLFM: @2$>..@>>$>=$2*$3::@>$>=vsum(@<..@>>) -->
+	//
+	// or
+	//
+	//   <!-- +TBLFM:
+	//     @2$>..@>>$>=$2*$3
+	//     @>$>=vsum(@<..@>>)
+	//   -->
+	//
+	// In the second case, the "closure" part is stored in the `.Closure` member of the node.
+	return regexp.MustCompile(`(?i)^<!--\s*\+(TBLFM):\s*([^-]+?)\s*(-->\s*)?$`)
+})
+
+// millerScriptIndex is the index of the Miller script in the matches of the Miller directive regex.
+const tblfmScriptIndex = 2
+
 var regexpCodeDirective = sync.OnceValue(func() *regexp.Regexp {
 	// Matches the code directive in HTML comments, e.g.:
 	//
@@ -332,6 +352,17 @@ func Process(
 			if matches := regexpMillerDirective().FindStringSubmatch(text); len(matches) > 0 {
 				mlrScript := matches[millerScriptIndex]
 				cursor = processMillerTable(sourceMD, writer, cursor, htmlBlockNode, mlrScript)
+			} else
+			// +TBLFM directive
+			if matches := regexpTBLFMDirective().FindStringSubmatch(text); len(matches) > 0 {
+				tblfmScript := matches[tblfmScriptIndex]
+				var tblfmScripts []string
+				for _, line := range strings.Split(tblfmScript, "\n") {
+					for _, script := range strings.Split(line, "::") {
+						tblfmScripts = append(tblfmScripts, script)
+					}
+				}
+				cursor = processTBLFMTable(sourceMD, writer, cursor, htmlBlockNode, tblfmScripts)
 			} else
 			// +CODE directive
 			if matches := regexpCodeDirective().FindStringSubmatch(text); len(matches) > 0 {

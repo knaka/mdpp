@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	myext "github.com/knaka/mdpp/ext"
+	"github.com/knaka/mdpp/tblfm"
 
 	gmast "github.com/yuin/goldmark/ast"
 	gmextast "github.com/yuin/goldmark/extension/ast"
@@ -105,5 +106,76 @@ func processMillerTable(
 		Must(writer.Write(sourceMD[tableEndPos:directiveEndPos]))
 		nextWritePos = directiveEndPos
 	}
+	return
+}
+
+// processTBLFMTable processes a table with TBLFM script, writes the result to writer, and returns the new writing position.
+func processTBLFMTable(
+	sourceMD []byte, // The source markdown content
+	writer io.Writer, // The output destination
+	writePos int, // The current write position in the source
+	directiveNode *gmast.HTMLBlock, // The HTML block node containing the TBLFM directive
+	tblfmScripts []string, // The TBLFM scripts to process the table
+) (
+	nextWritePos int, // The next write position after processing
+) {
+	nextWritePos = writePos
+	tableNode := directiveNode.PreviousSibling()
+	if tableNode == nil || tableNode.Kind() != gmextast.KindTable {
+		return
+	}
+	segments := myext.SegmentsOf(tableNode)
+	if segments == nil {
+		return
+	}
+
+	// Extract table data
+	table, _ := tableNode.(*gmextast.Table)
+	hasHeader := false
+	var tableData [][]string
+	for rowNode := table.FirstChild(); rowNode != nil; rowNode = rowNode.NextSibling() {
+		if _, ok := rowNode.(*gmextast.TableHeader); ok {
+			hasHeader = true
+		}
+		var rowData []string
+		for cellNode := rowNode.FirstChild(); cellNode != nil; cellNode = cellNode.NextSibling() {
+			if cell, ok := cellNode.(*gmextast.TableCell); ok {
+				cellLines := cell.Lines()
+				cellText := string(sourceMD[cellLines.At(0).Start:cellLines.At(0).Stop])
+				rowData = append(rowData, cellText)
+			}
+		}
+		tableData = append(tableData, rowData)
+	}
+
+	// Apply TBLFM formulas
+	tblfm.Apply(tableData, tblfmScripts, tblfm.WithHeader(hasHeader))
+
+	// Write processed table
+	tableStartPos := (*segments)[0].Start
+	tableEndPos := (*segments)[len(*segments)-1].Stop
+	linePrefixStartPos := getPrefixStart(sourceMD, tableStartPos)
+	Must(writer.Write(sourceMD[writePos:linePrefixStartPos]))
+
+	linePrefix := ""
+	if tableStartPos != linePrefixStartPos {
+		linePrefix = string(sourceMD[linePrefixStartPos:tableStartPos])
+	}
+
+	for rowIndex, rowData := range tableData {
+		Must(writer.Write([]byte(linePrefix + "| " + strings.Join(rowData, " | ") + " |\n")))
+		if rowIndex == 0 && hasHeader {
+			separators := make([]string, len(rowData))
+			for i := range separators {
+				separators[i] = "---"
+			}
+			Must(writer.Write([]byte(linePrefix + "| " + strings.Join(separators, " | ") + " |\n")))
+		}
+	}
+
+	directiveLines := directiveNode.Lines()
+	directiveEndPos := directiveLines.At(directiveLines.Len() - 1).Stop
+	Must(writer.Write(sourceMD[tableEndPos:directiveEndPos]))
+	nextWritePos = directiveEndPos
 	return
 }

@@ -27,6 +27,7 @@ func TestPrefixedMillerTable(t *testing.T) {
 | Apple | 2.5 | 12 | 0 |
 | Banana | 2.0 | 5 | 0 |
 | Orange | 1.2 | 8 | 0 |
+
 <!-- +mlr:
   $Total = $UnitPrice * $Quantity
 -->
@@ -40,6 +41,7 @@ bar
 | Apple | 2.5 | 12 | 30 |
 | Banana | 2.0 | 5 | 10 |
 | Orange | 1.2 | 8 | 9.6 |
+
 <!-- +mlr:
   $Total = $UnitPrice * $Quantity
 -->
@@ -71,6 +73,104 @@ bar
 > | Orange | 1.2 | 8 | 9.6 |
 >
 > <!-- +Miller: $Total = $UnitPrice * $Quantity -->
+
+bar
+`),
+		},
+	}
+
+	for _, tt := range tests {
+		if !tt.run {
+			t.Logf("Skipping test %s", tt.name)
+			continue
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			writer := bytes.NewBuffer(nil)
+			V0(Process(tt.sourceMD, writer, nil))
+			if !bytes.Equal(tt.expectedMD, writer.Bytes()) {
+				t.Fatalf(`Unmatched for %s:
+
+%s`, tt.name, diff.LineDiff(string(tt.expectedMD), writer.String()))
+			}
+		})
+	}
+}
+
+func TestPrefixedTBLFMTable(t *testing.T) {
+	tests := []struct {
+		run        bool
+		name       string
+		sourceMD   []byte
+		expectedMD []byte
+	}{
+		{
+			run:  true,
+			name: "Basic case",
+			sourceMD: []byte(`foo
+
+| Item | UnitPrice | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 0 |
+| Banana | 2.0 | 5 | 0 |
+| Orange | 1.2 | 8 | 0 |
+|  |  |  |  |
+
+<!-- +TBLFM:
+  @2$>..@>>$>=$2*$3
+  @>$>=vsum(@<..@>>)
+-->
+
+bar
+`),
+			expectedMD: []byte(`foo
+
+| Item | UnitPrice | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 30 |
+| Banana | 2.0 | 5 | 10 |
+| Orange | 1.2 | 8 | 9.6 |
+|  |  |  | 49.6 |
+
+<!-- +TBLFM:
+  @2$>..@>>$>=$2*$3
+  @>$>=vsum(@<..@>>)
+-->
+
+bar
+`),
+		},
+		{
+			run:  true,
+			name: "Basic case",
+			sourceMD: []byte(`foo
+
+> | Item | UnitPrice | Quantity | Total |
+> | --- | --- | --- | --- |
+> | Apple | 2.5 | 12 | 0 |
+> | Banana | 2.0 | 5 | 0 |
+> | Orange | 1.2 | 8 | 0 |
+> |  |  |  |  |
+> 
+> <!-- +TBLFM:
+>   @2$>..@>>$>=$2*$3
+>   @>$>=vsum(@<..@>>)
+> -->
+
+bar
+`),
+			expectedMD: []byte(`foo
+
+> | Item | UnitPrice | Quantity | Total |
+> | --- | --- | --- | --- |
+> | Apple | 2.5 | 12 | 30 |
+> | Banana | 2.0 | 5 | 10 |
+> | Orange | 1.2 | 8 | 9.6 |
+> |  |  |  | 49.6 |
+> 
+> <!-- +TBLFM:
+>   @2$>..@>>$>=$2*$3
+>   @>$>=vsum(@<..@>>)
+> -->
 
 bar
 `),
@@ -343,7 +443,7 @@ End of canonical test.
 			if !bytes.Equal(tt.expected, output1.Bytes()) {
 				t.Fatalf(`Unmatched on first run:\n\n%s`, diff.LineDiff(string(tt.expected), output1.String()))
 			}
-			
+
 			// Second run for idempotency test
 			output2 := bytes.NewBuffer(nil)
 			if err := Process(output1.Bytes(), output2, nil); err != nil {

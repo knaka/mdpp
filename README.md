@@ -81,6 +81,51 @@ Processes the table above the directive using a [Miller](https://miller.readthed
   $Total = ${Unit Price} * $Quantity;
 -->
 ````
+
+#### +TBLFM
+Processes the table above the directive using table formulas similar to Emacs Org-mode's `#+TBLFM:` feature. This directive supports Org-mode-style cell references and formulas.
+
+**Input:**
+
+````markdown
+| Item | UnitPrice | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 0 |
+| Banana | 2.0 | 5 | 0 |
+| Orange | 1.2 | 8 | 0 |
+|  |  |  |  |
+
+<!-- +TBLFM:
+  @2$>..@>>$>=$2*$3
+  @>$>=vsum(@<..@>>)
+-->
+````
+
+**Output:**
+
+````markdown
+| Item | UnitPrice | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 30 |
+| Banana | 2.0 | 5 | 10 |
+| Orange | 1.2 | 8 | 9.6 |
+|  |  |  | 49.6 |
+
+<!-- +TBLFM:
+  @2$>..@>>$>=$2*$3
+  @>$>=vsum(@<..@>>)
+-->
+````
+
+The formula syntax uses Org-mode-style cell references:
+- `@2` refers to row 2 (first data row after header)
+- `$>` refers to the last column
+- `@>` refers to the last row
+- `@>>` refers to the second-to-last row
+- `@<` refers to the first data row
+- Ranges are specified with `..` (e.g., `@2$>..@>>$>` means "from row 2 last column to second-to-last row last column")
+- Multiple formulas can be specified, separated by newlines or `::`
+
 #### +INCLUDE ... +END
 
 Includes the content of an external Markdown file or remote URL.
