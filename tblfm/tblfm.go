@@ -49,19 +49,19 @@ func Apply(
 
 	resultTable = table
 
-	// 空のフォーミュラなら何もしない
+	// If formulas are empty, do nothing
 	if len(formulas) == 0 {
 		return
 	}
 
-	// 各フォーミュラを順番に適用
+	// Apply each formula in order
 	for _, formula := range formulas {
 		formula = strings.TrimSpace(formula)
 		if formula == "" {
 			continue
 		}
 
-		// フォーミュラをパース
+		// Parse formula
 		matches := formulaRe.FindStringSubmatch(formula)
 		if matches == nil {
 			return resultTable, fmt.Errorf("invalid formula format: %s", formula)
@@ -70,7 +70,7 @@ func Apply(
 		targetCol, _ := strconv.Atoi(matches[1])
 		expression := matches[2]
 
-		// データ行の開始位置を決定
+		// Determine data row start position
 		startRow := 0
 		if cfg.hasHeader {
 			startRow = 1
@@ -158,6 +158,6 @@ func evaluateSimpleExpression(expr string) (int, error) {
 		}
 	}
 
-	// 数値のみの場合
+	// For numeric values only
 	return strconv.Atoi(expr)
 }
