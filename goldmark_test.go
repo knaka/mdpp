@@ -59,7 +59,6 @@ bar
 		return gmast.WalkContinue, nil
 	})
 	mdTree.Dump(sourceMD, 0)
-	t.Logf("Text: %s", mdTree.Text(sourceMD))
 }
 
 func TestLinkWithSegments(t *testing.T) {
@@ -103,5 +102,4 @@ And this is a ![image name](./bar.png) !
 		}
 		return gmast.WalkContinue, nil
 	})
-
 }
