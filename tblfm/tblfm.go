@@ -30,9 +30,10 @@ var (
 	// Formula parser: supports $4=$2*$3 (column), @3=@2 (row), @3$4=@2$2 (cell)
 	formulaRe = regexp.MustCompile(`^(@\d+)?(\$\d+)?=(.+)$`)
 	// Find cell references like @2$3, $2, $3, $-1, $-2 (with optional row)
-	cellRefRe = regexp.MustCompile(`(@([-+]?\d+|<|>+))?(\$([-+]?\d+|<+|>+))`)
-	// Find standalone row references like @2, @<, @> (this will also match @2$ but we process cellRefRe first)
-	rowRefRe = regexp.MustCompile(`@([-+]?\d+|<|>+)`)
+	// Supports <, <<, <<< (up to 3 levels) and >, >>, >>> (up to 3 levels)
+	cellRefRe = regexp.MustCompile(`(@([-+]?\d+|<{1,3}|>{1,3}))?(\$([-+]?\d+|<{1,3}|>{1,3}))`)
+	// Find standalone row references like @2, @<, @<<, @<<< (this will also match @2$ but we process cellRefRe first)
+	rowRefRe = regexp.MustCompile(`@([-+]?\d+|<{1,3}|>{1,3})`)
 )
 
 // Apply performs table calculations using TBLFM formulas on the input 2D array and returns the modified table.
@@ -135,13 +136,25 @@ func Apply(
 						// No row specified, use current row
 						sourceRow = rowIdx
 					} else {
-						switch rowSpec {
-						case "<":
+						switch {
+						case rowSpec == "<":
 							// First data row
 							sourceRow = startRow
-						case ">", ">>":
+						case rowSpec == "<<":
+							// Second data row
+							sourceRow = startRow + 1
+						case rowSpec == "<<<":
+							// Third data row
+							sourceRow = startRow + 2
+						case rowSpec == ">":
 							// Last row
 							sourceRow = len(table) - 1
+						case rowSpec == ">>":
+							// Second to last row
+							sourceRow = len(table) - 2
+						case rowSpec == ">>>":
+							// Third to last row
+							sourceRow = len(table) - 3
 						default:
 							// Numeric row reference
 							rowNum, _ := strconv.Atoi(rowSpec)
@@ -157,13 +170,25 @@ func Apply(
 
 					// Determine source column
 					var sourceCol int
-					switch colSpec {
-					case "<":
+					switch {
+					case colSpec == "<":
 						// First column
 						sourceCol = 0
-					case ">>", ">>>":
+					case colSpec == "<<":
+						// Second column
+						sourceCol = 1
+					case colSpec == "<<<":
+						// Third column
+						sourceCol = 2
+					case colSpec == ">":
 						// Last column
 						sourceCol = len(table[sourceRow]) - 1
+					case colSpec == ">>":
+						// Second to last column
+						sourceCol = len(table[sourceRow]) - 2
+					case colSpec == ">>>":
+						// Third to last column
+						sourceCol = len(table[sourceRow]) - 3
 					default:
 						// Numeric column reference
 						colNum, _ := strconv.Atoi(colSpec)
@@ -184,7 +209,7 @@ func Apply(
 					return "0"
 				})
 
-				// Then, replace standalone row references like @<, @> (for row copy operations)
+				// Then, replace standalone row references like @<, @<<, @> (for row copy operations)
 				evaluableExpr = rowRefRe.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
 					matches := rowRefRe.FindStringSubmatch(ref)
 					if matches == nil {
@@ -194,13 +219,25 @@ func Apply(
 					rowSpec := matches[1]
 					var sourceRow int
 
-					switch rowSpec {
-					case "<":
+					switch {
+					case rowSpec == "<":
 						// First data row
 						sourceRow = startRow
-					case ">", ">>":
+					case rowSpec == "<<":
+						// Second data row
+						sourceRow = startRow + 1
+					case rowSpec == "<<<":
+						// Third data row
+						sourceRow = startRow + 2
+					case rowSpec == ">":
 						// Last row
 						sourceRow = len(table) - 1
+					case rowSpec == ">>":
+						// Second to last row
+						sourceRow = len(table) - 2
+					case rowSpec == ">>>":
+						// Third to last row
+						sourceRow = len(table) - 3
 					default:
 						// Numeric row reference
 						rowNum, _ := strconv.Atoi(rowSpec)
@@ -222,29 +259,34 @@ func Apply(
 				})
 
 				// Evaluate expression using expr library
-				output, err := expr.Eval(evaluableExpr, nil)
-				if err != nil {
-					return resultTable, fmt.Errorf("failed to evaluate expression '%s': %w", evaluableExpr, err)
-				}
-
-				// Convert result to string
 				var resultStr string
-				switch v := output.(type) {
-				case int:
-					resultStr = strconv.Itoa(v)
-				case int64:
-					resultStr = strconv.FormatInt(v, 10)
-				case float64:
-					// Check if it's a whole number
-					if v == float64(int64(v)) {
-						resultStr = strconv.FormatInt(int64(v), 10)
-					} else {
-						resultStr = strconv.FormatFloat(v, 'f', -1, 64)
+				if evaluableExpr == "" {
+					// If expression is empty (e.g., copying an empty cell), use empty string
+					resultStr = ""
+				} else {
+					output, err := expr.Eval(evaluableExpr, nil)
+					if err != nil {
+						return resultTable, fmt.Errorf("failed to evaluate expression '%s': %w", evaluableExpr, err)
 					}
-				case string:
-					resultStr = v
-				default:
-					resultStr = fmt.Sprintf("%v", output)
+
+					// Convert result to string
+					switch v := output.(type) {
+					case int:
+						resultStr = strconv.Itoa(v)
+					case int64:
+						resultStr = strconv.FormatInt(v, 10)
+					case float64:
+						// Check if it's a whole number
+						if v == float64(int64(v)) {
+							resultStr = strconv.FormatInt(int64(v), 10)
+						} else {
+							resultStr = strconv.FormatFloat(v, 'f', -1, 64)
+						}
+					case string:
+						resultStr = v
+					default:
+						resultStr = fmt.Sprintf("%v", output)
+					}
 				}
 
 				// Set result to target cell
