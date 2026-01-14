@@ -30,6 +30,7 @@ require (
 )
 
 require (
+	github.com/expr-lang/expr v1.17.7
 	github.com/johnkerl/miller/v6 v6.13.0
 	github.com/knaka/go-utils v0.1.12
 	github.com/sergi/go-diff v1.2.0 // indirect

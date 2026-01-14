@@ -1,8 +1,11 @@
 package tblfm
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/expr-lang/expr"
 )
 
 func TestApply_EmptyFormula(t *testing.T) {
@@ -287,4 +290,162 @@ func TestApply_RelativeColumnReferences(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestApply_RowAndColumnCopy(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    [][]string
+		formulas []string
+		expected [][]string
+	}{
+		{
+			name: "column copy - $5=$4 (copy entire column)",
+			input: [][]string{
+				{"a", "b", "c", "d", "e"},
+				{"1", "2", "3", "4", ""},
+				{"5", "6", "7", "8", ""},
+				{"9", "10", "11", "12", ""},
+			},
+			formulas: []string{"$5=$4"},
+			expected: [][]string{
+				{"a", "b", "c", "d", "e"},
+				{"1", "2", "3", "4", "4"},
+				{"5", "6", "7", "8", "8"},
+				{"9", "10", "11", "12", "12"},
+			},
+		},
+		{
+			name: "row copy - @3=@< (copy first data row to row 3)",
+			input: [][]string{
+				{"a", "b", "c", "d", "e"},
+				{"1", "2", "3", "4", "5"},
+				{"", "", "", "", ""},
+			},
+			formulas: []string{"@3=@<"},
+			expected: [][]string{
+				{"a", "b", "c", "d", "e"},
+				{"1", "2", "3", "4", "5"},
+				{"1", "2", "3", "4", "5"},
+			},
+		},
+		{
+			name: "row copy - @4=@>> (copy last row to row 4)",
+			input: [][]string{
+				{"a", "b", "c", "d", "e"},
+				{"1", "2", "3", "4", "5"},
+				{"", "", "", "", ""},
+				{"5", "4", "3", "2", "1"},
+			},
+			formulas: []string{"@3=@>>"},
+			expected: [][]string{
+				{"a", "b", "c", "d", "e"},
+				{"1", "2", "3", "4", "5"},
+				{"5", "4", "3", "2", "1"},
+				{"5", "4", "3", "2", "1"},
+			},
+		},
+		{
+			name: "row copy with relative reference - @3=@-1",
+			input: [][]string{
+				{"a", "b", "c", "d", "e"},
+				{"1", "2", "3", "4", "5"},
+				{"", "", "", "", ""},
+			},
+			formulas: []string{"@3=@-1"},
+			expected: [][]string{
+				{"a", "b", "c", "d", "e"},
+				{"1", "2", "3", "4", "5"},
+				{"1", "2", "3", "4", "5"},
+			},
+		},
+		{
+			name: "column copy with relative reference - $2=$-1",
+			input: [][]string{
+				{"a", "b", "c"},
+				{"1", "", ""},
+				{"2", "", ""},
+				{"3", "", ""},
+			},
+			formulas: []string{"$2=$-1"},
+			expected: [][]string{
+				{"a", "b", "c"},
+				{"1", "1", ""},
+				{"2", "2", ""},
+				{"3", "3", ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Apply(tt.input, tt.formulas)
+			if err != nil {
+				t.Fatalf("Apply() returned error: %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Apply() returned unexpected result")
+				for i := range result {
+					t.Errorf("Row %d: Got: %v, Want: %v", i, result[i], tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+func TestFoo(_ *testing.T) {
+	vsumFn := expr.Function(
+		"vsum",
+		func(params ...any) (any, error) {
+			switch params[0].(type) {
+			case int:
+				var sum int
+				for _, v := range params {
+					sum = sum + v.(int)
+				}
+				return sum, nil
+			case float64:
+				var sum float64
+				for _, v := range params {
+					sum = sum + v.(float64)
+				}
+				return sum, nil
+			case []any:
+				var sum float64
+				a := params[0].([]any)
+				if len(a) == 0 {
+					return 0, nil
+				}
+				for _, v := range a {
+					switch v := v.(type) {
+					case int:
+						sum = sum + float64(v)
+					case float64:
+						sum = sum + v
+					default:
+						return nil, fmt.Errorf("invalid type")
+					}
+				}
+				return sum, nil
+			}
+			return nil, fmt.Errorf("invalid type")
+		},
+		new(func(any) float64),
+		new(func(...int) int),
+		new(func(...float64) float64),
+	)
+	program, _ := expr.Compile("vsum([1,2,3.5,4])", vsumFn)
+	env := map[string]any{
+		"greet": "Hello, %v!",
+		"names": []string{"world", "you"},
+	}
+	output, _ := expr.Run(program, env)
+	s := fmt.Sprintf("%v", output)
+	println("226e0b6", s)
+
+	program2, _ := expr.Compile("vsum(1,2,3.5,4)", vsumFn)
+	output2, _ := expr.Run(program2, map[string]any{})
+	s2 := fmt.Sprintf("%v", output2)
+	println("71d5de3", s2)
 }
