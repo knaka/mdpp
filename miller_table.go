@@ -13,42 +13,52 @@ import (
 	. "github.com/knaka/go-utils"
 )
 
-// processMillerTable processes a table with Miller script and writes the result to writer
-func processMillerTable(sourceMD []byte, writer io.Writer, cursor int, htmlBlockNode *gmast.HTMLBlock, mlrScript string) int {
-	prevNode := htmlBlockNode.PreviousSibling()
-	if prevNode.Kind() != gmast.KindParagraph {
-		return cursor
+// processMillerTable processes a table with Miller script, writes the result to writer, and returns the new writing position.
+func processMillerTable(
+	sourceMD []byte, // The source markdown content
+	writer io.Writer, // The output destination
+	writePos int, // The current write position in the source
+	directiveNode *gmast.HTMLBlock, // The HTML block node containing the Miller directive
+	millerScript string, // The Miller script to process the table
+) (
+	nextWritePos int, // The next write position after processing
+) {
+	nextWritePos = writePos
+	prevNode := directiveNode.PreviousSibling()
+	if prevNode == nil || prevNode.Kind() != gmast.KindParagraph {
+		return
 	}
 	tableLines := prevNode.Lines()
 	if tableLines.Len() == 0 {
-		return cursor
+		return
 	}
-	tableStart := tableLines.At(0).Start
-	tableStop := tableLines.At(tableLines.Len() - 1).Stop
-	prefixStart := getPrefixStart(sourceMD, tableStart)
-	markdownTableText := tableLines.Value(sourceMD)
-	tempDirPath, tempDirCleanFn := mkdirTemp()
-	defer tempDirCleanFn()
+	tableStartPos := tableLines.At(0).Start
+	tableEndPos := tableLines.At(tableLines.Len() - 1).Stop
+	linePrefixStartPos := getPrefixStart(sourceMD, tableStartPos)
+	tableMarkdown := tableLines.Value(sourceMD)
+	tempDirPath, cleanupTempDir := mkdirTemp()
+	defer cleanupTempDir()
 	tempFilePath := path.Join(tempDirPath, "3202c41.md")
-	V0(os.WriteFile(tempFilePath, []byte(markdownTableText), 0600))
-	mlrMDInplacePut(tempFilePath, mlrScript)
-	resultMDTable := V(os.ReadFile(tempFilePath))
-	_ = V(writer.Write(sourceMD[cursor:prefixStart]))
+	Must(os.WriteFile(tempFilePath, []byte(tableMarkdown), 0600))
+	mlrMDInplacePut(tempFilePath, millerScript)
+	processedTableMarkdown := Value(os.ReadFile(tempFilePath))
+	Must(writer.Write(sourceMD[writePos:linePrefixStartPos]))
 	// No prefix
-	if tableStart == prefixStart {
-		_ = V(writer.Write(resultMDTable))
+	if tableStartPos == linePrefixStartPos {
+		Must(writer.Write(processedTableMarkdown))
 	} else
 	// Has a prefix
 	{
-		prefixText := string(sourceMD[prefixStart:tableStart])
-		for line := range bytes.SplitSeq(resultMDTable, []byte{'\n'}) {
+		linePrefixText := string(sourceMD[linePrefixStartPos:tableStartPos])
+		for line := range bytes.SplitSeq(processedTableMarkdown, []byte{'\n'}) {
 			if len(strings.TrimSpace(string(line))) > 0 {
-				_ = V(writer.Write([]byte(prefixText + string(line) + "\n")))
+				Must(writer.Write([]byte(linePrefixText + string(line) + "\n")))
 			}
 		}
 	}
-	htmlBlockLines := htmlBlockNode.Lines()
-	newCursor := htmlBlockLines.At(htmlBlockLines.Len() - 1).Stop
-	_ = V(writer.Write(sourceMD[tableStop+1 : newCursor]))
-	return newCursor
+	directiveLines := directiveNode.Lines()
+	directiveEndPos := directiveLines.At(directiveLines.Len() - 1).Stop
+	Must(writer.Write(sourceMD[tableEndPos+1 : directiveEndPos]))
+	nextWritePos = directiveEndPos
+	return
 }
