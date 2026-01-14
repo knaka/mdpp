@@ -25,10 +25,10 @@ func WithHeader(hasHeader bool) Option {
 }
 
 var (
-	// $4=$2*$3 形式のフォーミュラをパース
+	// $4=$2*$3 form formula parser
 	formulaRe = regexp.MustCompile(`^\$(\d+)=(.+)$`)
-	// $2, $3 などのセル参照を見つける
-	cellRefRe = regexp.MustCompile(`\$(\d+)`)
+	// Find cell references like $2, $3, $-1, $-2 (supports relative references)
+	cellRefRe = regexp.MustCompile(`\$([-+]?\d+)`)
 )
 
 // Apply performs table calculations using TBLFM formulas on the input 2D array and returns the modified table.
@@ -76,31 +76,38 @@ func Apply(
 			startRow = 1
 		}
 
-		// 各行に対してフォーミュラを適用
+		// Apply formula to each row
 		for rowIdx := startRow; rowIdx < len(table); rowIdx++ {
 			row := table[rowIdx]
 
-			// セル参照を実際の値に置き換える
+			// Replace cell references with actual values
 			expr := cellRefRe.ReplaceAllStringFunc(expression, func(ref string) string {
 				colMatch := cellRefRe.FindStringSubmatch(ref)
 				if colMatch == nil {
 					return ref
 				}
 				col, _ := strconv.Atoi(colMatch[1])
-				colIdx := col - 1 // 1-based to 0-based
+				var colIdx int
+				if col < 0 {
+					// Relative reference: $-1 means one column to the left of target column
+					colIdx = (targetCol - 1) + col
+				} else {
+					// Absolute reference: $2 means column 2
+					colIdx = col - 1 // 1-based to 0-based
+				}
 				if colIdx >= 0 && colIdx < len(row) {
 					return row[colIdx]
 				}
 				return "0"
 			})
 
-			// 式を評価
+			// Evaluate expression
 			result, err := evaluateSimpleExpression(expr)
 			if err != nil {
 				return resultTable, err
 			}
 
-			// 結果をターゲット列に設定
+			// Set result to target column
 			targetIdx := targetCol - 1 // 1-based to 0-based
 			if targetIdx >= 0 && targetIdx < len(row) {
 				table[rowIdx][targetIdx] = strconv.Itoa(result)
