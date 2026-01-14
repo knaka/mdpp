@@ -31,6 +31,7 @@ var gmParser = sync.OnceValue(func() gmparser.Parser {
 		gm.WithExtensions(
 			gmmeta.Meta, // Enable the `Meta` extension to parse metadata in the Markdown document
 			// Do not add `Table` extension here, as it transforms paragraphs into tables, retains the position of each cell, and discards the position of the table itself.
+			myext.Table,
 			myext.Link,
 		),
 	).Parser()

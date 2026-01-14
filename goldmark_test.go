@@ -3,7 +3,6 @@ package mdpp
 import (
 	"testing"
 
-	ext "github.com/knaka/mdpp/ext"
 	gmast "github.com/yuin/goldmark/ast"
 )
 
@@ -74,10 +73,6 @@ And this is a ![image name](./bar.png) !
 		}
 		if link, ok := node.(*gmast.Link); ok {
 			t.Logf("Link found: Destination=%s, Title=%s", link.Destination, link.Title)
-			segment := ext.SegmentOf(link)
-			if segment != nil {
-				t.Logf("  Segment: %d, %d", segment.Start, segment.Stop)
-			}
 			for c := link.FirstChild(); c != nil; c = c.NextSibling() {
 				if textNode, ok := c.(*gmast.Text); ok {
 					t.Logf("  Text: %s", textNode.Value(sourceMD))
@@ -88,10 +83,6 @@ And this is a ![image name](./bar.png) !
 		}
 		if link, ok := node.(*gmast.Image); ok {
 			t.Logf("Image found: Destination=%s, Title=%s", link.Destination, link.Title)
-			segment := ext.SegmentOf(link)
-			if segment != nil {
-				t.Logf("  Segment: %d, %d", segment.Start, segment.Stop)
-			}
 			for c := link.FirstChild(); c != nil; c = c.NextSibling() {
 				if textNode, ok := c.(*gmast.Text); ok {
 					t.Logf("  Text: %s", textNode.Value(sourceMD))
