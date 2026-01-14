@@ -577,6 +577,67 @@ func TestApply_Range(t *testing.T) {
 	}
 }
 
+func TestApply_RangeFunction(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    [][]string
+		formulas []string
+		expected [][]string
+	}{
+		{
+			name: "range summary",
+			input: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", ""},
+				{"Orange", "150", "3", ""},
+				{"Total", "", "", ""},
+			},
+			formulas: []string{
+				"@2$>..@>>$>=$2*$3",
+				"@>$>=vsum(@<..@>>)",
+			},
+			expected: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", "500"},
+				{"Orange", "150", "3", "450"},
+				{"Total", "", "", "950"},
+			},
+		},
+		{
+			name: "range summary with column specification",
+			input: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", ""},
+				{"Orange", "150", "3", ""},
+				{"Total", "", "", ""},
+			},
+			formulas: []string{
+				"@2$>..@>>$>=$2*$3",
+				"@>$>=vsum(@<$>..@>>$>)",
+			},
+			expected: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", "500"},
+				{"Orange", "150", "3", "450"},
+				{"Total", "", "", "950"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Apply(tt.input, tt.formulas)
+			if err != nil {
+				t.Fatalf("Apply() returned error: %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Apply() returned unexpected result\nGot:  %v\nWant: %v", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestFoo(_ *testing.T) {
 	vsumFn := expr.Function(
 		"vsum",
