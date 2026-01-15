@@ -820,6 +820,27 @@ func TestApply_BuiltinFunctions(t *testing.T) {
 				{"Product A", "100", "150", "200", "250", "700", "175"},
 			},
 		},
+		{
+			name: "real-world invoice example with compact notation",
+			input: [][]string{
+				{"Item", "UnitPrice", "Quantity", "Total"},
+				{"Apple", "2.5", "12", ""},
+				{"Banana", "2.0", "5", ""},
+				{"Orange", "1.2", "8", ""},
+				{"Total", "", "", ""},
+			},
+			formulas: []string{
+				"@<$>..@>>=$2*$3",
+				"@>$>=vsum(@<..@>>)",
+			},
+			expected: [][]string{
+				{"Item", "UnitPrice", "Quantity", "Total"},
+				{"Apple", "2.5", "12", "30"},
+				{"Banana", "2.0", "5", "10"},
+				{"Orange", "1.2", "8", "9.6"},
+				{"Total", "", "", "49.6"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
