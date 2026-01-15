@@ -1,11 +1,8 @@
 package tblfm
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
-
-	"github.com/expr-lang/expr"
 )
 
 func TestApply_EmptyFormula(t *testing.T) {
@@ -638,58 +635,146 @@ func TestApply_RangeFunction(t *testing.T) {
 	}
 }
 
-func TestFoo(_ *testing.T) {
-	vsumFn := expr.Function(
-		"vsum",
-		func(params ...any) (any, error) {
-			switch params[0].(type) {
-			case int:
-				var sum int
-				for _, v := range params {
-					sum = sum + v.(int)
-				}
-				return sum, nil
-			case float64:
-				var sum float64
-				for _, v := range params {
-					sum = sum + v.(float64)
-				}
-				return sum, nil
-			case []any:
-				var sum float64
-				a := params[0].([]any)
-				if len(a) == 0 {
-					return 0, nil
-				}
-				for _, v := range a {
-					switch v := v.(type) {
-					case int:
-						sum = sum + float64(v)
-					case float64:
-						sum = sum + v
-					default:
-						return nil, fmt.Errorf("invalid type")
+func TestApply_BuiltinFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    [][]string
+		formulas []string
+		expected [][]string
+	}{
+		{
+			name: "vsum with column range",
+			input: [][]string{
+				{"Item", "Value"},
+				{"A", "10"},
+				{"B", "20"},
+				{"C", "30"},
+				{"Total", ""},
+			},
+			formulas: []string{
+				"@>$>=vsum(@<$>..@>>$>)",
+			},
+			expected: [][]string{
+				{"Item", "Value"},
+				{"A", "10"},
+				{"B", "20"},
+				{"C", "30"},
+				{"Total", "60"},
+			},
+		},
+		{
+			name: "vsum with multiple columns",
+			input: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", ""},
+				{"Orange", "150", "3", ""},
+				{"Total", "", "", ""},
+			},
+			formulas: []string{
+				"@2$4..@>>$4=$2*$3",
+				"@>$4=vsum(@<$4..@>>$4)",
+			},
+			expected: [][]string{
+				{"Item", "Price", "Qty", "Total"},
+				{"Apple", "100", "5", "500"},
+				{"Orange", "150", "3", "450"},
+				{"Total", "", "", "950"},
+			},
+		},
+		{
+			name: "vsum with single column reference",
+			input: [][]string{
+				{"A", "B", "C"},
+				{"1", "2", "3"},
+				{"4", "5", "6"},
+				{"7", "8", "9"},
+				{"", "", ""},
+			},
+			formulas: []string{
+				"@>$1=vsum(@<$1..@>>$1)",
+				"@>$2=vsum(@<$2..@>>$2)",
+				"@>$3=vsum(@<$3..@>>$3)",
+			},
+			expected: [][]string{
+				{"A", "B", "C"},
+				{"1", "2", "3"},
+				{"4", "5", "6"},
+				{"7", "8", "9"},
+				{"12", "15", "18"},
+			},
+		},
+		{
+			name: "vsum with decimal values",
+			input: [][]string{
+				{"Item", "Amount"},
+				{"A", "10.5"},
+				{"B", "20.75"},
+				{"C", "30.25"},
+				{"Total", ""},
+			},
+			formulas: []string{
+				"@>$>=vsum(@<$>..@>>$>)",
+			},
+			expected: [][]string{
+				{"Item", "Amount"},
+				{"A", "10.5"},
+				{"B", "20.75"},
+				{"C", "30.25"},
+				{"Total", "61.5"},
+			},
+		},
+		{
+			name: "vsum with empty cells",
+			input: [][]string{
+				{"Item", "Value"},
+				{"A", "10"},
+				{"B", ""},
+				{"C", "30"},
+				{"Total", ""},
+			},
+			formulas: []string{
+				"@>$>=vsum(@<$>..@>>$>)",
+			},
+			expected: [][]string{
+				{"Item", "Value"},
+				{"A", "10"},
+				{"B", ""},
+				{"C", "30"},
+				{"Total", "40"},
+			},
+		},
+		{
+			name: "vsum in complex formula",
+			input: [][]string{
+				{"Item", "Q1", "Q2", "Q3", "Q4", "Total", "Average"},
+				{"Product A", "100", "150", "200", "250", "", ""},
+			},
+			formulas: []string{
+				"@2$6=vsum(@2$2..@2$5)",
+				"@2$7=vsum(@2$2..@2$5)/4",
+			},
+			expected: [][]string{
+				{"Item", "Q1", "Q2", "Q3", "Q4", "Total", "Average"},
+				{"Product A", "100", "150", "200", "250", "700", "175"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Apply(tt.input, tt.formulas)
+			if err != nil {
+				t.Fatalf("Apply() returned error: %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Apply() returned unexpected result")
+				for i := range result {
+					if i < len(tt.expected) && !reflect.DeepEqual(result[i], tt.expected[i]) {
+						t.Errorf("Row %d: Got: %v, Want: %v", i, result[i], tt.expected[i])
 					}
 				}
-				return sum, nil
 			}
-			return nil, fmt.Errorf("invalid type")
-		},
-		new(func(any) float64),
-		new(func(...int) int),
-		new(func(...float64) float64),
-	)
-	program, _ := expr.Compile("vsum([1,2,3.5,4])", vsumFn)
-	env := map[string]any{
-		"greet": "Hello, %v!",
-		"names": []string{"world", "you"},
+		})
 	}
-	output, _ := expr.Run(program, env)
-	s := fmt.Sprintf("%v", output)
-	println("226e0b6", s)
-
-	program2, _ := expr.Compile("vsum(1,2,3.5,4)", vsumFn)
-	output2, _ := expr.Run(program2, map[string]any{})
-	s2 := fmt.Sprintf("%v", output2)
-	println("71d5de3", s2)
 }
