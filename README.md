@@ -62,9 +62,18 @@ Processes the table above the directive using a [Miller](https://miller.readthed
 | Apple | 2.5 | 12 | 0 |
 | Banana | 2.0 | 5 | 0 |
 | Orange | 1.2 | 8 | 0 |
+| Total |  |  | 0 |
 
 <!-- +MLR:
-  $Total = ${Unit Price} * $Quantity;
+  begin {
+    @total = 0
+  }
+  if ($Item == "Total") {
+    $Total = @total
+  } else {
+    $Total = ${Unit Price} * $Quantity;
+    @total += $Total
+  }
 -->
 ````
 
@@ -76,9 +85,18 @@ Processes the table above the directive using a [Miller](https://miller.readthed
 | Apple | 2.5 | 12 | 30 |
 | Banana | 2.0 | 5 | 10 |
 | Orange | 1.2 | 8 | 9.6 |
+| Total |  |  | 49.6 |
 
 <!-- +MLR:
-  $Total = ${Unit Price} * $Quantity;
+  begin {
+    @total = 0
+  }
+  if ($Item == "Total") {
+    $Total = @total
+  } else {
+    $Total = ${Unit Price} * $Quantity;
+    @total += $Total
+  }
 -->
 ````
 
