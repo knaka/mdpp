@@ -167,7 +167,14 @@ func processTBLFMTable(
 		if rowIndex == 0 && hasHeader {
 			separators := make([]string, len(rowData))
 			for i := range separators {
-				separators[i] = "---"
+				switch table.Alignments[i] {
+				case gmextast.AlignLeft:
+					separators[i] = ":---"
+				case gmextast.AlignCenter:
+					separators[i] = ":---:"
+				case gmextast.AlignRight, gmextast.AlignNone:
+					separators[i] = "---"
+				}
 			}
 			Must(writer.Write([]byte(linePrefix + "| " + strings.Join(separators, " | ") + " |\n")))
 		}

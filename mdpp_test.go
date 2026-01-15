@@ -109,32 +109,24 @@ func TestPrefixedTBLFMTable(t *testing.T) {
 			sourceMD: []byte(`foo
 
 | Item | UnitPrice | Quantity | Total |
-| --- | --- | --- | --- |
+| :---: | --- | --- | :--- |
 | Apple | 2.5 | 12 | 0 |
 | Banana | 2.0 | 5 | 0 |
 | Orange | 1.2 | 8 | 0 |
 |  |  |  |  |
-
-<!-- +TBLFM:
-  @2$>..@>>$>=$2*$3
-  @>$>=vsum(@<..@>>)
--->
+<!-- +TBLFM: @2$>..@>>$>=$2*$3::@>$>=vsum(@<..@>>) -->
 
 bar
 `),
 			expectedMD: []byte(`foo
 
 | Item | UnitPrice | Quantity | Total |
-| --- | --- | --- | --- |
+| :---: | --- | --- | :--- |
 | Apple | 2.5 | 12 | 30 |
 | Banana | 2.0 | 5 | 10 |
 | Orange | 1.2 | 8 | 9.6 |
 |  |  |  | 49.6 |
-
-<!-- +TBLFM:
-  @2$>..@>>$>=$2*$3
-  @>$>=vsum(@<..@>>)
--->
+<!-- +TBLFM: @2$>..@>>$>=$2*$3::@>$>=vsum(@<..@>>) -->
 
 bar
 `),
