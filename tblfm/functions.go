@@ -1,6 +1,7 @@
 package tblfm
 
 import (
+	"math"
 	"math/rand/v2"
 	"strconv"
 	"sync"
@@ -308,6 +309,29 @@ func randomfFunction(params ...any) (any, error) {
 	return rand.Float64(), nil
 }
 
+// expFunction returns e raised to the power of the given value.
+func expFunction(params ...any) (any, error) {
+	if len(params) == 0 {
+		return 1.0, nil
+	}
+
+	var val float64
+	switch v := params[0].(type) {
+	case int:
+		val = float64(v)
+	case int64:
+		val = float64(v)
+	case float64:
+		val = v
+	case string:
+		if num, err := strconv.ParseFloat(v, 64); err == nil {
+			val = num
+		}
+	}
+
+	return math.Exp(val), nil
+}
+
 // vminFunction is an Expr function to find the minimum value.
 func vminFunction(params ...any) (any, error) {
 	if len(params) == 0 {
@@ -388,6 +412,13 @@ func vminFunction(params ...any) (any, error) {
 	return min, nil
 }
 
+// getBuiltinConstants returns all built-in constants for expression evaluation.
+func getBuiltinConstants() map[string]any {
+	return map[string]any{
+		"pi": math.Pi,
+	}
+}
+
 // getBuiltinFunctions returns all built-in functions for expression evaluation.
 // Uses sync.OnceValue to ensure expr.Function is only called once.
 var getBuiltinFunctions = sync.OnceValue(func() []expr.Option {
@@ -395,6 +426,11 @@ var getBuiltinFunctions = sync.OnceValue(func() []expr.Option {
 	return []expr.Option{
 		// `abs` is a builtin.
 		// `ceil` is a builtin.
+		expr.Function(
+			"exp",
+			expFunction,
+			new(func(float64) float64),
+		),
 		// `floor` is a builtin.
 		// `int` is a builtin.
 		// `mean` is a builtin.

@@ -477,7 +477,7 @@ func Apply(
 							// If compilation fails, it might be a plain string value
 							resultStr = evaluableExpr
 						} else {
-							output, err := expr.Run(program, nil)
+							output, err := expr.Run(program, getBuiltinConstants())
 							if err != nil {
 								// If evaluation fails, it might be a plain string value from a cell reference
 								// In this case, just use the value as-is

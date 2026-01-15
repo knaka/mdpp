@@ -117,7 +117,9 @@ Processes the table above the directive using table formulas similar to Emacs Or
 -->
 ````
 
-The formula syntax uses Org-mode-style cell references:
+**Formula syntax:**
+
+Cell references use Org-mode-style notation:
 - `@2` refers to row 2 (first data row after header)
 - `$>` refers to the last column
 - `@>` refers to the last row
@@ -125,6 +127,28 @@ The formula syntax uses Org-mode-style cell references:
 - `@<` refers to the first data row
 - Ranges are specified with `..` (e.g., `@2$>..@>>$>` means "from row 2 last column to second-to-last row last column")
 - Multiple formulas can be specified, separated by newlines or `::`
+
+**Available functions:**
+
+Formulas are evaluated using [Expr](https://expr-lang.org/), which provides access to:
+
+- **Vector functions** for operating on ranges:
+  - `vsum(range)` - Sum of values
+  - `vmean(range)` - Average (mean) of values
+  - `vmedian(range)` - Median of values
+  - `vmax(range)` - Maximum value
+  - `vmin(range)` - Minimum value
+
+- **Mathematical functions**:
+  - `exp(x)` - Exponential function (e^x)
+  - `abs(x)`, `ceil(x)`, `floor(x)`, `round(x)` - Rounding functions
+  - `sqrt(x)`, `pow(x, y)` - Power and square root
+
+- **Random number generation**:
+  - `random(start, end)` - Random integer in range [start, end]
+  - `randomf()` - Random float in range [0.0, 1.0)
+
+- All other [Expr built-in functions](https://expr-lang.org/docs/language-definition) including arithmetic operators, comparison operators, logical operators, and string operations
 
 #### +INCLUDE ... +END
 
