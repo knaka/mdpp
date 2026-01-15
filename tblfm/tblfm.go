@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/expr-lang/expr"
 )
@@ -26,20 +27,33 @@ func WithHeader(hasHeader bool) Option {
 	}
 }
 
-var (
-	// Formula parser: supports $4=$2*$3 (column), @3=@2 (row), @3$4=@2$2 (cell)
-	// Also supports range syntax: @2$>..@>>$>=@1$>
-	formulaRe = regexp.MustCompile(`^((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)(?:\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?))?=(.+)$`)
-	// Find cell references like @2$3, $2, $3, $-1, $-2 (with optional row)
-	// Supports <, <<, <<< (up to 3 levels) and >, >>, >>> (up to 3 levels)
-	cellRefRe = regexp.MustCompile(`(@([-+]?\d+|<{1,3}|>{1,3}))?(\$([-+]?\d+|<{1,3}|>{1,3}))`)
-	// Find standalone row references like @2, @<, @<<, @<<< (this will also match @2$ but we process cellRefRe first)
-	rowRefRe = regexp.MustCompile(`@([-+]?\d+|<{1,3}|>{1,3})`)
-	// Parse cell position like @2$3, $4, @3
-	cellPosRe = regexp.MustCompile(`^(?:@([-+]?\d+|<{1,3}|>{1,3}))?(?:\$([-+]?\d+|<{1,3}|>{1,3}))?$`)
-	// Find range references like @<..@>> or @2$1..@5$3
-	rangeRefRe = regexp.MustCompile(`((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)`)
-)
+// regexps holds all compiled regular expressions used for TBLFM parsing.
+type regexps struct {
+	formulaRe  *regexp.Regexp
+	cellRefRe  *regexp.Regexp
+	rowRefRe   *regexp.Regexp
+	cellPosRe  *regexp.Regexp
+	rangeRefRe *regexp.Regexp
+}
+
+// getRegexps returns all compiled regular expressions.
+// Uses sync.OnceValue to ensure regexp.MustCompile is only called once.
+var getRegexps = sync.OnceValue(func() *regexps {
+	return &regexps{
+		// Formula parser: supports $4=$2*$3 (column), @3=@2 (row), @3$4=@2$2 (cell)
+		// Also supports range syntax: @2$>..@>>$>=@1$>
+		formulaRe: regexp.MustCompile(`^((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)(?:\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?))?=(.+)$`),
+		// Find cell references like @2$3, $2, $3, $-1, $-2 (with optional row)
+		// Supports <, <<, <<< (up to 3 levels) and >, >>, >>> (up to 3 levels)
+		cellRefRe: regexp.MustCompile(`(@([-+]?\d+|<{1,3}|>{1,3}))?(\$([-+]?\d+|<{1,3}|>{1,3}))`),
+		// Find standalone row references like @2, @<, @<<, @<<< (this will also match @2$ but we process cellRefRe first)
+		rowRefRe: regexp.MustCompile(`@([-+]?\d+|<{1,3}|>{1,3})`),
+		// Parse cell position like @2$3, $4, @3
+		cellPosRe: regexp.MustCompile(`^(?:@([-+]?\d+|<{1,3}|>{1,3}))?(?:\$([-+]?\d+|<{1,3}|>{1,3}))?$`),
+		// Find range references like @<..@>> or @2$1..@5$3
+		rangeRefRe: regexp.MustCompile(`((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)`),
+	}
+})
 
 // expandRange expands a range reference like "@<..@>>" into an array of values
 func expandRange(startPos, endPos string, table [][]string, currentRow, currentCol, dataStartRow int) []any {
@@ -93,7 +107,7 @@ func parseCellPosition(pos string, startRow int, tableLen int, rowLen int) (row 
 		return
 	}
 
-	matches := cellPosRe.FindStringSubmatch(pos)
+	matches := getRegexps().cellPosRe.FindStringSubmatch(pos)
 	if matches == nil {
 		return
 	}
@@ -187,7 +201,7 @@ func Apply(
 		}
 
 		// Parse formula
-		matches := formulaRe.FindStringSubmatch(formula)
+		matches := getRegexps().formulaRe.FindStringSubmatch(formula)
 		if matches == nil {
 			return resultTable, fmt.Errorf("invalid formula format: %s", formula)
 		}
@@ -260,8 +274,8 @@ func Apply(
 				evaluableExpr := expression
 
 				// First, replace range references with array literals (before cell/row references)
-				evaluableExpr = rangeRefRe.ReplaceAllStringFunc(evaluableExpr, func(rangeRef string) string {
-					matches := rangeRefRe.FindStringSubmatch(rangeRef)
+				evaluableExpr = getRegexps().rangeRefRe.ReplaceAllStringFunc(evaluableExpr, func(rangeRef string) string {
+					matches := getRegexps().rangeRefRe.FindStringSubmatch(rangeRef)
 					if matches == nil {
 						return rangeRef
 					}
@@ -293,8 +307,8 @@ func Apply(
 				})
 
 				// Then, replace cell references (with optional row) like @2$3, $2
-				evaluableExpr = cellRefRe.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
-					matches := cellRefRe.FindStringSubmatch(ref)
+				evaluableExpr = getRegexps().cellRefRe.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
+					matches := getRegexps().cellRefRe.FindStringSubmatch(ref)
 					if matches == nil {
 						return ref
 					}
@@ -387,8 +401,8 @@ func Apply(
 				})
 
 				// Then, replace standalone row references like @<, @<<, @> (for row copy operations)
-				evaluableExpr = rowRefRe.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
-					matches := rowRefRe.FindStringSubmatch(ref)
+				evaluableExpr = getRegexps().rowRefRe.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
+					matches := getRegexps().rowRefRe.FindStringSubmatch(ref)
 					if matches == nil {
 						return ref
 					}
