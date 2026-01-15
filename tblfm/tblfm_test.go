@@ -841,6 +841,168 @@ func TestApply_BuiltinFunctions(t *testing.T) {
 				{"Total", "", "", "49.6"},
 			},
 		},
+		{
+			name: "vmean with column range",
+			input: [][]string{
+				{"Item", "Value", "Average"},
+				{"A", "10", ""},
+				{"B", "20", ""},
+				{"C", "30", ""},
+			},
+			formulas: []string{
+				"@<$>..@>$>=vmean(@<$2..@>$2)",
+			},
+			expected: [][]string{
+				{"Item", "Value", "Average"},
+				{"A", "10", "20"},
+				{"B", "20", "20"},
+				{"C", "30", "20"},
+			},
+		},
+		{
+			name: "vmean with row-only range",
+			input: [][]string{
+				{"scores"},
+				{"85"},
+				{"90"},
+				{"78"},
+				{"92"},
+				{""},
+			},
+			formulas: []string{
+				"@>$1=vmean(@<..@-1)",
+			},
+			expected: [][]string{
+				{"scores"},
+				{"85"},
+				{"90"},
+				{"78"},
+				{"92"},
+				{"86.25"},
+			},
+		},
+		{
+			name: "vmean with empty cells",
+			input: [][]string{
+				{"Value", "Avg"},
+				{"10", ""},
+				{"", ""},
+				{"30", ""},
+			},
+			formulas: []string{
+				"@<$>..@>$>=vmean(@<$1..@>$1)",
+			},
+			expected: [][]string{
+				{"Value", "Avg"},
+				{"10", "20"},
+				{"", "20"},
+				{"30", "20"},
+			},
+		},
+		{
+			name: "vmax with multiple values",
+			input: [][]string{
+				{"Value", "Max"},
+				{"15", ""},
+				{"42", ""},
+				{"8", ""},
+				{"33", ""},
+			},
+			formulas: []string{
+				"@<$>..@>$>=vmax(@<$1..@>$1)",
+			},
+			expected: [][]string{
+				{"Value", "Max"},
+				{"15", "42"},
+				{"42", "42"},
+				{"8", "42"},
+				{"33", "42"},
+			},
+		},
+		{
+			name: "vmin with multiple values",
+			input: [][]string{
+				{"Value", "Min"},
+				{"15", ""},
+				{"42", ""},
+				{"8", ""},
+				{"33", ""},
+			},
+			formulas: []string{
+				"@<$>..@>$>=vmin(@<$1..@>$1)",
+			},
+			expected: [][]string{
+				{"Value", "Min"},
+				{"15", "8"},
+				{"42", "8"},
+				{"8", "8"},
+				{"33", "8"},
+			},
+		},
+		{
+			name: "vmedian with odd number of values",
+			input: [][]string{
+				{"Value", "Median"},
+				{"10", ""},
+				{"20", ""},
+				{"30", ""},
+			},
+			formulas: []string{
+				"@<$>..@>$>=vmedian(@<$1..@>$1)",
+			},
+			expected: [][]string{
+				{"Value", "Median"},
+				{"10", "20"},
+				{"20", "20"},
+				{"30", "20"},
+			},
+		},
+		{
+			name: "vmedian with even number of values",
+			input: [][]string{
+				{"Value", "Median"},
+				{"10", ""},
+				{"20", ""},
+				{"30", ""},
+				{"40", ""},
+			},
+			formulas: []string{
+				"@<$>..@>$>=vmedian(@<$1..@>$1)",
+			},
+			expected: [][]string{
+				{"Value", "Median"},
+				{"10", "25"},
+				{"20", "25"},
+				{"30", "25"},
+				{"40", "25"},
+			},
+		},
+		{
+			name: "statistics summary row",
+			input: [][]string{
+				{"Value", "Sum", "Mean", "Median", "Min", "Max"},
+				{"15", "", "", "", "", ""},
+				{"42", "", "", "", "", ""},
+				{"8", "", "", "", "", ""},
+				{"33", "", "", "", "", ""},
+				{"", "", "", "", "", ""},
+			},
+			formulas: []string{
+				"@>$2=vsum(@<$1..@>>$1)",
+				"@>$3=vmean(@<$1..@>>$1)",
+				"@>$4=vmedian(@<$1..@>>$1)",
+				"@>$5=vmin(@<$1..@>>$1)",
+				"@>$6=vmax(@<$1..@>>$1)",
+			},
+			expected: [][]string{
+				{"Value", "Sum", "Mean", "Median", "Min", "Max"},
+				{"15", "", "", "", "", ""},
+				{"42", "", "", "", "", ""},
+				{"8", "", "", "", "", ""},
+				{"33", "", "", "", "", ""},
+				{"", "98", "24.5", "24", "8", "42"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
