@@ -682,6 +682,68 @@ func TestApply_BuiltinFunctions(t *testing.T) {
 			},
 		},
 		{
+			name: "vsum with row-only range (implicit column)",
+			input: [][]string{
+				{"val"},
+				{"10"},
+				{"20"},
+				{"30"},
+				{""},
+			},
+			formulas: []string{
+				"@>$1=vsum(@<..@-1)",
+			},
+			expected: [][]string{
+				{"val"},
+				{"10"},
+				{"20"},
+				{"30"},
+				{"60"},
+			},
+		},
+		{
+			name: "vsum with row-only range (less than -1)",
+			input: [][]string{
+				{"val"},
+				{"10"},
+				{"20"},
+				{""},
+				{""},
+			},
+			formulas: []string{
+				"@>$1=vsum(@<..@-2)",
+			},
+			expected: [][]string{
+				{"val"},
+				{"10"},
+				{"20"},
+				{""},
+				{"30"},
+			},
+		},
+		{
+			name: "vsum with row-only range (multiple columns with implicit column)",
+			input: [][]string{
+				{"A", "B", "C"},
+				{"1", "2", "3"},
+				{"4", "5", "6"},
+				{"7", "8", "9"},
+				{"", "", ""},
+			},
+			formulas: []string{
+				"@>$1=vsum(@<..@-1)",
+				"@>$2=vsum(@<..@-1)",
+				"@>$3=vsum(@<..@-1)",
+			},
+			expected: [][]string{
+				{"A", "B", "C"},
+				{"1", "2", "3"},
+				{"4", "5", "6"},
+				{"7", "8", "9"},
+				{"12", "15", "18"},
+			},
+		},
+		{
 			name: "vsum with single column reference",
 			input: [][]string{
 				{"A", "B", "C"},

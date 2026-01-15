@@ -64,8 +64,8 @@ func expandRange(startPos, endPos string, table [][]string, currentRow, currentC
 		}
 	}
 
-	startRow, startCol := parseCellPosition(startPos, dataStartRow, len(table), maxRowLen)
-	endRow, endCol := parseCellPosition(endPos, dataStartRow, len(table), maxRowLen)
+	startRow, startCol := parseCellPosition(startPos, dataStartRow, len(table), maxRowLen, currentRow, currentCol)
+	endRow, endCol := parseCellPosition(endPos, dataStartRow, len(table), maxRowLen, currentRow, currentCol)
 
 	var values []any
 
@@ -99,7 +99,8 @@ func expandRange(startPos, endPos string, table [][]string, currentRow, currentC
 
 // parseCellPosition parses a cell position specification like "@2$3", "$4", "@3"
 // Returns (row, col) where -1 means "any" (not specified)
-func parseCellPosition(pos string, startRow int, tableLen int, rowLen int) (row int, col int) {
+// currentRow and currentCol are 1-based positions used for relative references
+func parseCellPosition(pos string, startRow int, tableLen int, rowLen int, currentRow int, currentCol int) (row int, col int) {
 	row = -1
 	col = -1
 
@@ -134,6 +135,9 @@ func parseCellPosition(pos string, startRow int, tableLen int, rowLen int) (row 
 			rowNum, _ := strconv.Atoi(rowSpec)
 			if rowNum > 0 {
 				row = rowNum - 1 // 1-based to 0-based
+			} else if rowNum < 0 && currentRow > 0 {
+				// Relative reference: @-1 means one row above current
+				row = currentRow - 1 + rowNum
 			}
 		}
 	}
@@ -157,6 +161,9 @@ func parseCellPosition(pos string, startRow int, tableLen int, rowLen int) (row 
 			colNum, _ := strconv.Atoi(colSpec)
 			if colNum > 0 {
 				col = colNum - 1 // 1-based to 0-based
+			} else if colNum < 0 && currentCol > 0 {
+				// Relative reference: $-1 means one column to the left
+				col = currentCol - 1 + colNum
 			}
 		}
 	}
@@ -218,13 +225,13 @@ func Apply(
 			}
 		}
 
-		// Parse start position
-		targetStartRow, targetStartCol := parseCellPosition(startPosSpec, dataStartRow, len(table), maxRowLen)
+		// Parse start position (no current position for target specification)
+		targetStartRow, targetStartCol := parseCellPosition(startPosSpec, dataStartRow, len(table), maxRowLen, 0, 0)
 
 		// Parse end position (if range specified)
 		var targetEndRow, targetEndCol int = -1, -1
 		if endPosSpec != "" {
-			targetEndRow, targetEndCol = parseCellPosition(endPosSpec, dataStartRow, len(table), maxRowLen)
+			targetEndRow, targetEndCol = parseCellPosition(endPosSpec, dataStartRow, len(table), maxRowLen, 0, 0)
 		}
 
 		// Determine target range
