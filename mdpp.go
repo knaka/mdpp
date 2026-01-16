@@ -110,16 +110,6 @@ var regexpEndDirective = sync.OnceValue(func() *regexp.Regexp {
 	return regexp.MustCompile(`(?i)^<!--\s*\+END\s*-->\s*$`)
 })
 
-// getPrefixStart returns the BOL of the line at the given start position in the source markdown.
-func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
-	for i := blockStart; true; i-- {
-		if i == 0 || sourceMD[i-1] == '\n' || sourceMD[i-1] == '\r' {
-			return i
-		}
-	}
-	return // Should not be reached
-}
-
 // mkdirTemp creates a temporary directory and returns its path and a cleanup function.
 func mkdirTemp() (string, func()) {
 	tempDirPath := V(os.MkdirTemp("", "mdpp"))

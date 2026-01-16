@@ -17,6 +17,16 @@ import (
 	. "github.com/knaka/go-utils"
 )
 
+// getPrefixStart returns the BOL of the line at the given start position in the source markdown.
+func getPrefixStart(sourceMD []byte, blockStart int) (prefixStart int) {
+	for i := blockStart; true; i-- {
+		if i == 0 || sourceMD[i-1] == '\n' || sourceMD[i-1] == '\r' {
+			return i
+		}
+	}
+	return // Should not be reached
+}
+
 // processMillerTable processes a table with Miller script, writes the result to writer, and returns the new writing position.
 func processMillerTable(
 	sourceMD []byte, // The source markdown content
@@ -109,6 +119,33 @@ func processMillerTable(
 	return
 }
 
+// getTableStartPosition searches backward from cellStart to find the pipe character '|' that marks the start of the table,
+// and returns both the table start position and the prefix start position (beginning of line).
+func getTableStartPosition(sourceMD []byte, cellStart int) (tableStartPos int, prefixStartPos int) {
+	// Search backward from cellStart to find the pipe '|'
+	for i := cellStart - 1; i >= 0; i-- {
+		if sourceMD[i] == '|' {
+			tableStartPos = i
+			break
+		}
+	}
+	// Find the beginning of the line (prefix start)
+	prefixStartPos = getPrefixStart(sourceMD, tableStartPos)
+	return
+}
+
+// getTableEndPosition searches forward from cellEnd to find the pipe character '|' that marks the end of the table.
+func getTableEndPosition(sourceMD []byte, cellEnd int) (tableEndPos int) {
+	// Search forward from cellEnd to find the pipe '|'
+	for i := cellEnd; i < len(sourceMD); i++ {
+		if sourceMD[i] == '|' {
+			tableEndPos = i + 1
+			return
+		}
+	}
+	panic("c431e30")
+}
+
 // processTBLFMTable processes a table with TBLFM script, writes the result to writer, and returns the new writing position.
 func processTBLFMTable(
 	sourceMD []byte, // The source markdown content
@@ -122,10 +159,6 @@ func processTBLFMTable(
 	nextWritePos = writePos
 	tableNode := directiveNode.PreviousSibling()
 	if tableNode == nil || tableNode.Kind() != gmextast.KindTable {
-		return
-	}
-	segments := myext.SegmentsOf(tableNode)
-	if segments == nil {
 		return
 	}
 
@@ -152,9 +185,24 @@ func processTBLFMTable(
 	tblfm.Apply(tableData, tblfmScripts, tblfm.WithHeader(hasHeader))
 
 	// Write processed table
-	tableStartPos := (*segments)[0].Start
-	tableEndPos := (*segments)[len(*segments)-1].Stop
-	linePrefixStartPos := getPrefixStart(sourceMD, tableStartPos)
+	var tableStartPos, linePrefixStartPos int
+	firstCell, ok := table.FirstChild().FirstChild().(*gmextast.TableCell)
+	if !ok {
+		panic("b5ced57")
+	}
+	segments := firstCell.Lines()
+	firstCellStart := segments.At(0).Start
+	tableStartPos, linePrefixStartPos = getTableStartPosition(sourceMD, firstCellStart)
+
+	var tableEndPos int
+	lastCell, ok := table.LastChild().LastChild().(*gmextast.TableCell)
+	if !ok {
+		panic("b647e0c")
+	}
+	segments = lastCell.Lines()
+	lastCellEnd := segments.At(segments.Len() - 1).Stop
+	tableEndPos = getTableEndPosition(sourceMD, lastCellEnd)
+
 	Must(writer.Write(sourceMD[writePos:linePrefixStartPos]))
 
 	linePrefix := ""
@@ -162,8 +210,9 @@ func processTBLFMTable(
 		linePrefix = string(sourceMD[linePrefixStartPos:tableStartPos])
 	}
 
+	var lines []string
 	for rowIndex, rowData := range tableData {
-		Must(writer.Write([]byte(linePrefix + "| " + strings.Join(rowData, " | ") + " |\n")))
+		lines = append(lines, linePrefix+"| "+strings.Join(rowData, " | ")+" |")
 		if rowIndex == 0 && hasHeader {
 			separators := make([]string, len(rowData))
 			for i := range separators {
@@ -176,9 +225,10 @@ func processTBLFMTable(
 					separators[i] = "---"
 				}
 			}
-			Must(writer.Write([]byte(linePrefix + "| " + strings.Join(separators, " | ") + " |\n")))
+			lines = append(lines, linePrefix+"| "+strings.Join(separators, " | ")+" |")
 		}
 	}
+	Must(writer.Write([]byte(strings.Join(lines, "\n"))))
 
 	directiveLines := directiveNode.Lines()
 	directiveEndPos := directiveLines.At(directiveLines.Len() - 1).Stop
