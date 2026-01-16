@@ -16,6 +16,7 @@ import (
 	gm "github.com/yuin/goldmark"
 	gmmeta "github.com/yuin/goldmark-meta"
 	gmast "github.com/yuin/goldmark/ast"
+	gmext "github.com/yuin/goldmark/extension"
 	gmparser "github.com/yuin/goldmark/parser"
 	gmtext "github.com/yuin/goldmark/text"
 
@@ -30,8 +31,7 @@ var gmParser = sync.OnceValue(func() gmparser.Parser {
 	return gm.New(
 		gm.WithExtensions(
 			gmmeta.Meta, // Enable the `Meta` extension to parse metadata in the Markdown document
-			// Do not add `Table` extension here, as it transforms paragraphs into tables, retains the position of each cell, and discards the position of the table itself.
-			myext.Table,
+			gmext.Table,
 			myext.Link,
 		),
 	).Parser()
