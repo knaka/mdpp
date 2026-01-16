@@ -97,6 +97,10 @@ func processTable(
 		if rowIndex == 0 && hasHeader {
 			separators := make([]string, len(rowData))
 			for i := range separators {
+				if i >= len(table.Alignments) {
+					separators[i] = "---"
+					continue
+				}
 				switch table.Alignments[i] {
 				case gmextast.AlignLeft:
 					separators[i] = ":---"
@@ -195,5 +199,59 @@ func processTBLFMTable(
 		// Apply TBLFM formulas
 		tblfm.Apply(tableData, tblfmScripts, tblfm.WithHeader(hasHeader))
 		return tableData
+	})
+}
+
+// loadTableFromFile loads table data from a CSV or TSV file based on file extension.
+func loadTableFromFile(filePath string) ([][]string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var separator string
+	ext := strings.ToLower(path.Ext(filePath))
+	switch ext {
+	case ".tsv":
+		separator = "\t"
+	case ".csv":
+		separator = ","
+	default:
+		// Default to CSV
+		separator = ","
+	}
+
+	var tableData [][]string
+	for line := range bytes.SplitSeq(data, []byte{'\n'}) {
+		if len(line) > 0 {
+			tableData = append(tableData, strings.Split(string(line), separator))
+		}
+	}
+	return tableData, nil
+}
+
+// processTableInclude processes a table include directive, loads data from file, and writes the result to writer.
+func processTableInclude(
+	sourceMD []byte, // The source markdown content
+	writer io.Writer, // The output destination
+	writePos int, // The current write position in the source
+	directiveNode *gmast.HTMLBlock, // The HTML block node containing the directive
+	filePath string, // The path to the file to include
+) (
+	nextWritePos int, // The next write position after processing
+) {
+	return processTable(sourceMD, writer, writePos, directiveNode, func(tableData [][]string, hasHeader bool) [][]string {
+		// Load table data from file and replace the existing table
+		loadedData, err := loadTableFromFile(filePath)
+		if err != nil {
+			// If file cannot be read, return original table data
+			return tableData
+		}
+		if len(loadedData) == 0 {
+			// If file is empty, return original table data
+			return tableData
+		}
+		// Return loaded data (assuming first row is header)
+		return loadedData
 	})
 }

@@ -186,6 +186,80 @@ bar
 	}
 }
 
+func TestTableInclude(t *testing.T) {
+	tests := []struct {
+		run        bool
+		name       string
+		sourceMD   []byte
+		expectedMD []byte
+	}{
+		{
+			run:  true,
+			name: "CSV include",
+			sourceMD: []byte(`Test table from CSV:
+
+| Old | Data | Here |
+| --- | --- | --- |
+| x | y | z |
+<!-- +TABLE_INCLUDE: misc/test_table.csv -->
+
+Done.
+`),
+			expectedMD: []byte(`Test table from CSV:
+
+| Name | Age | City |
+| --- | --- | --- |
+| Alice | 30 | Tokyo |
+| Bob | 25 | Osaka |
+| Charlie | 35 | Kyoto |
+<!-- +TABLE_INCLUDE: misc/test_table.csv -->
+
+Done.
+`),
+		},
+		{
+			run:  true,
+			name: "TSV include with TINCLUDE alias",
+			sourceMD: []byte(`Test table from TSV:
+
+| Old | Data |
+| :---: | :--- |
+| a | b |
+<!-- +TINCLUDE: misc/test_table.tsv -->
+
+Done.
+`),
+			expectedMD: []byte(`Test table from TSV:
+
+| Product | Price | Quantity |
+| :---: | :--- | --- |
+| Apple | 100 | 5 |
+| Banana | 80 | 10 |
+| Orange | 120 | 3 |
+<!-- +TINCLUDE: misc/test_table.tsv -->
+
+Done.
+`),
+		},
+	}
+
+	for _, tt := range tests {
+		if !tt.run {
+			t.Logf("Skipping test %s", tt.name)
+			continue
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			writer := bytes.NewBuffer(nil)
+			V0(Process(tt.sourceMD, writer, nil))
+			if !bytes.Equal(tt.expectedMD, writer.Bytes()) {
+				t.Fatalf(`Unmatched for %s:
+
+%s`, tt.name, diff.LineDiff(string(tt.expectedMD), writer.String()))
+			}
+		})
+	}
+}
+
 func TestTitleExtraction(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -168,6 +168,47 @@ Formulas are evaluated using [Expr](https://expr-lang.org/), which provides acce
 
 - All other [Expr built-in functions](https://expr-lang.org/docs/language-definition) including arithmetic operators, comparison operators, logical operators, and string operations
 
+#### +TABLE_INCLUDE / +TINCLUDE
+
+Replaces the table above the directive with data loaded from a CSV or TSV file. The file format is automatically detected based on the file extension (`.csv` or `.tsv`).
+
+**Input:**
+
+````markdown
+| Item | Price |
+| :--- | ---: |
+| Old | 999 |
+<!-- +TABLE_INCLUDE: data/products.csv -->
+````
+
+**Contents of `data/products.csv`:**
+
+```csv
+Product,Unit Price,Stock
+Apple,100,50
+Banana,80,30
+Orange,120,20
+```
+
+**Output (after running mdpp):**
+
+````markdown
+| Product | Unit Price | Stock |
+| :--- | ---: | --- |
+| Apple | 100 | 50 |
+| Banana | 80 | 30 |
+| Orange | 120 | 20 |
+<!-- +TABLE_INCLUDE: data/products.csv -->
+````
+
+**Features:**
+
+- Automatically detects file format by extension (`.csv` or `.tsv`)
+- Assumes the first row is a header row
+- Preserves column alignment from the original table (left `:---`, right `---:`, center `:---:`)
+- When the number of columns increases, additional columns use default alignment (`---`)
+- The alias `+TINCLUDE` can be used as a shorthand
+
 #### +INCLUDE ... +END
 
 Includes the content of an external Markdown file or remote URL.

@@ -84,6 +84,19 @@ var regexpTBLFMDirective = sync.OnceValue(func() *regexp.Regexp {
 // millerScriptIndex is the index of the Miller script in the matches of the Miller directive regex.
 const tblfmScriptIndex = 2
 
+// regexpTableIncludeDirective returns a compiled regex that matches TABLE_INCLUDE/TINCLUDE directives in HTML comments.
+var regexpTableIncludeDirective = sync.OnceValue(func() *regexp.Regexp {
+	// Matches the TABLE_INCLUDE or TINCLUDE directive in HTML comments, e.g.:
+	//
+	//   <!-- +TABLE_INCLUDE: data.csv -->
+	//   <!-- +TINCLUDE: data.tsv -->
+	//
+	return regexp.MustCompile(`(?i)^<!--\s*\+(TABLE_INCLUDE|TINCLUDE):\s*(.+?)\s*-->\s*$`)
+})
+
+// tableIncludeFilePathIndex is the index of the file path in the matches of the TABLE_INCLUDE directive regex.
+const tableIncludeFilePathIndex = 2
+
 var regexpCodeDirective = sync.OnceValue(func() *regexp.Regexp {
 	// Matches the code directive in HTML comments, e.g.:
 	//
@@ -353,6 +366,11 @@ func Process(
 					}
 				}
 				cursor = processTBLFMTable(sourceMD, writer, cursor, htmlBlockNode, tblfmScripts)
+			} else
+			// +TABLE_INCLUDE | +TINCLUDE directive
+			if matches := regexpTableIncludeDirective().FindStringSubmatch(text); len(matches) > 0 {
+				filePath := strings.TrimSpace(matches[tableIncludeFilePathIndex])
+				cursor = processTableInclude(sourceMD, writer, cursor, htmlBlockNode, filePath)
 			} else
 			// +CODE directive
 			if matches := regexpCodeDirective().FindStringSubmatch(text); len(matches) > 0 {
