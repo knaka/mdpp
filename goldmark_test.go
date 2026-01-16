@@ -57,7 +57,7 @@ bar
 		}
 		return gmast.WalkContinue, nil
 	})
-	mdTree.Dump(sourceMD, 0)
+	// mdTree.Dump(sourceMD, 0)
 }
 
 func TestLinkWithSegments(t *testing.T) {
@@ -66,7 +66,7 @@ func TestLinkWithSegments(t *testing.T) {
 And this is a ![image name](./bar.png) !
 `)
 	mdTree, _ := gmParse(sourceMD)
-	mdTree.Dump(sourceMD, 0)
+	// mdTree.Dump(sourceMD, 0)
 	gmast.Walk(mdTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {
 			return gmast.WalkContinue, nil
