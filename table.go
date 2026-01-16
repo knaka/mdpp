@@ -7,7 +7,6 @@ import (
 	"path"
 	"strings"
 
-	myext "github.com/knaka/mdpp/ext"
 	"github.com/knaka/mdpp/tblfm"
 
 	gmast "github.com/yuin/goldmark/ast"
@@ -38,45 +37,99 @@ func processMillerTable(
 	nextWritePos int, // The next write position after processing
 ) {
 	nextWritePos = writePos
-	prevNode := directiveNode.PreviousSibling()
-	if prevNode == nil {
+	tableNode := directiveNode.PreviousSibling()
+	if tableNode == nil || tableNode.Kind() != gmextast.KindTable {
 		return
 	}
-	if prevNode.Kind() != gmextast.KindTable {
-		return
-	}
-	segments := myext.SegmentsOf(prevNode)
-	if segments == nil {
-		return
-	}
-	tableStartPos := (*segments)[0].Start
-	tableEndPos := (*segments)[len(*segments)-1].Stop
-	linePrefixStartPos := getPrefixStart(sourceMD, tableStartPos)
-	// tableMarkdown := sourceMD[tableStartPos:tableEndPos]
-	tableMarkdown := ""
-	for _, segment := range *segments {
-		tableMarkdown = tableMarkdown + string(sourceMD[segment.Start:segment.Stop])
-	}
-	tempDirPath, cleanupTempDir := mkdirTemp()
-	defer cleanupTempDir()
-	tempFilePath := path.Join(tempDirPath, "3202c41.md")
-	Must(os.WriteFile(tempFilePath, []byte(tableMarkdown), 0600))
-	mlrMDInplacePut(tempFilePath, millerScript)
-	processedTableMarkdown := Value(os.ReadFile(tempFilePath))
-	Must(writer.Write(sourceMD[writePos:linePrefixStartPos]))
-	// No prefix
-	if tableStartPos == linePrefixStartPos {
-		Must(writer.Write(processedTableMarkdown))
-	} else
-	// Has a prefix
-	{
-		linePrefixText := string(sourceMD[linePrefixStartPos:tableStartPos])
-		for line := range bytes.SplitSeq(processedTableMarkdown, []byte{'\n'}) {
-			if len(strings.TrimSpace(string(line))) > 0 {
-				Must(writer.Write([]byte(linePrefixText + string(line) + "\n")))
+
+	// Extract table data
+	table, _ := tableNode.(*gmextast.Table)
+	hasHeader := false
+	var tableData [][]string
+	for rowNode := table.FirstChild(); rowNode != nil; rowNode = rowNode.NextSibling() {
+		if _, ok := rowNode.(*gmextast.TableHeader); ok {
+			hasHeader = true
+		}
+		var rowData []string
+		for cellNode := rowNode.FirstChild(); cellNode != nil; cellNode = cellNode.NextSibling() {
+			if cell, ok := cellNode.(*gmextast.TableCell); ok {
+				cellLines := cell.Lines()
+				cellText := string(sourceMD[cellLines.At(0).Start:cellLines.At(0).Stop])
+				rowData = append(rowData, cellText)
 			}
 		}
+		tableData = append(tableData, rowData)
 	}
+
+	// Convert to TSV and process with Miller
+	var tsvBuilder strings.Builder
+	for _, rowData := range tableData {
+		tsvBuilder.WriteString(strings.Join(rowData, "\t"))
+		tsvBuilder.WriteString("\n")
+	}
+
+	tempDirPath, cleanupTempDir := mkdirTemp()
+	defer cleanupTempDir()
+	tempFilePath := path.Join(tempDirPath, "data.tsv")
+	Must(os.WriteFile(tempFilePath, []byte(tsvBuilder.String()), 0600))
+	mlrTSVInplacePut(tempFilePath, millerScript, hasHeader)
+	processedTSV := Value(os.ReadFile(tempFilePath))
+
+	// Parse TSV back to table data
+	processedTableData := [][]string{}
+	for line := range bytes.SplitSeq(processedTSV, []byte{'\n'}) {
+		if len(line) > 0 {
+			processedTableData = append(processedTableData, strings.Split(string(line), "\t"))
+		}
+	}
+
+	// Get table boundaries
+	var tableStartPos, linePrefixStartPos int
+	firstCell, ok := table.FirstChild().FirstChild().(*gmextast.TableCell)
+	if !ok {
+		panic("ace5d42")
+	}
+	segments := firstCell.Lines()
+	firstCellStart := segments.At(0).Start
+	tableStartPos, linePrefixStartPos = getTableStartPosition(sourceMD, firstCellStart)
+
+	var tableEndPos int
+	lastCell, ok := table.LastChild().LastChild().(*gmextast.TableCell)
+	if !ok {
+		panic("ad0e1f3")
+	}
+	segments = lastCell.Lines()
+	lastCellEnd := segments.At(segments.Len() - 1).Stop
+	tableEndPos = getTableEndPosition(sourceMD, lastCellEnd)
+
+	Must(writer.Write(sourceMD[writePos:linePrefixStartPos]))
+
+	linePrefix := ""
+	if tableStartPos != linePrefixStartPos {
+		linePrefix = string(sourceMD[linePrefixStartPos:tableStartPos])
+	}
+
+	// Write processed table
+	var lines []string
+	for rowIndex, rowData := range processedTableData {
+		lines = append(lines, linePrefix+"| "+strings.Join(rowData, " | ")+" |")
+		if rowIndex == 0 && hasHeader {
+			separators := make([]string, len(rowData))
+			for i := range separators {
+				switch table.Alignments[i] {
+				case gmextast.AlignLeft:
+					separators[i] = ":---"
+				case gmextast.AlignCenter:
+					separators[i] = ":---:"
+				case gmextast.AlignRight, gmextast.AlignNone:
+					separators[i] = "---"
+				}
+			}
+			lines = append(lines, linePrefix+"| "+strings.Join(separators, " | ")+" |")
+		}
+	}
+	Must(writer.Write([]byte(strings.Join(lines, "\n"))))
+
 	directiveLines := directiveNode.Lines()
 	directiveEndPos := directiveLines.At(directiveLines.Len() - 1).Stop
 	Must(writer.Write(sourceMD[tableEndPos:directiveEndPos]))
