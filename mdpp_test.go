@@ -210,7 +210,7 @@ Done.
 | Name | Age | City |
 | --- | --- | --- |
 | Alice | 30 | Tokyo |
-| Bob | 25 | Osaka |
+| Bob | 25 | Osaka, Los Angeles "City of Angels" |
 | Charlie | 35 | Kyoto |
 <!-- +TABLE_INCLUDE: misc/test_table.csv -->
 

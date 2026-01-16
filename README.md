@@ -186,7 +186,7 @@ Replaces the table above the directive with data loaded from a CSV or TSV file. 
 ```csv
 Product,Unit Price,Stock
 Apple,100,50
-Banana,80,30
+"Banana ""Cavendish"", Premium",80,30
 Orange,120,20
 ```
 
@@ -196,7 +196,7 @@ Orange,120,20
 | Product | Unit Price | Stock |
 | :--- | ---: | --- |
 | Apple | 100 | 50 |
-| Banana | 80 | 30 |
+| Banana "Cavendish", Premium | 80 | 30 |
 | Orange | 120 | 20 |
 <!-- +TABLE_INCLUDE: data/products.csv -->
 ````

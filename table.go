@@ -2,6 +2,7 @@ package mdpp
 
 import (
 	"bytes"
+	"encoding/csv"
 	"io"
 	"os"
 	"path"
@@ -209,22 +210,20 @@ func loadTableFromFile(filePath string) ([][]string, error) {
 		return nil, err
 	}
 
-	var separator string
 	ext := strings.ToLower(path.Ext(filePath))
-	switch ext {
-	case ".tsv":
-		separator = "\t"
-	case ".csv":
-		separator = ","
-	default:
-		// Default to CSV
-		separator = ","
+
+	// Use encoding/csv for CSV files to properly handle quoted fields, commas, and newlines
+	if ext == ".csv" || ext == "" {
+		reader := bytes.NewReader(data)
+		csvReader := csv.NewReader(reader)
+		return csvReader.ReadAll()
 	}
 
+	// For TSV files, use simple split (TSV files typically don't have quoted fields)
 	var tableData [][]string
 	for line := range bytes.SplitSeq(data, []byte{'\n'}) {
 		if len(line) > 0 {
-			tableData = append(tableData, strings.Split(string(line), separator))
+			tableData = append(tableData, strings.Split(string(line), "\t"))
 		}
 	}
 	return tableData, nil
