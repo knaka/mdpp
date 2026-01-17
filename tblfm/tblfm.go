@@ -120,11 +120,11 @@ func parseCellPosition(pos string, startRow int, tableLen int, rowLen int, curre
 	if rowSpec != "" {
 		switch {
 		case rowSpec == "<":
-			row = startRow
+			row = 0 // First row (header if exists)
 		case rowSpec == "<<":
-			row = startRow + 1
+			row = 1 // Second row
 		case rowSpec == "<<<":
-			row = startRow + 2
+			row = 2 // Third row
 		case rowSpec == ">":
 			row = tableLen - 1
 		case rowSpec == ">>":
@@ -337,13 +337,13 @@ func Apply(
 						switch {
 						case rowSpec == "<":
 							// First data row
-							sourceRow = dataStartRow
+							sourceRow = 0
 						case rowSpec == "<<":
 							// Second data row
-							sourceRow = dataStartRow + 1
+							sourceRow = 0 + 1
 						case rowSpec == "<<<":
 							// Third data row
-							sourceRow = dataStartRow + 2
+							sourceRow = 0 + 2
 						case rowSpec == ">":
 							// Last row
 							sourceRow = len(table) - 1
@@ -419,14 +419,14 @@ func Apply(
 
 					switch {
 					case rowSpec == "<":
-						// First data row
-						sourceRow = dataStartRow
+						// First row (header if exists)
+						sourceRow = 0
 					case rowSpec == "<<":
-						// Second data row
-						sourceRow = dataStartRow + 1
+						// Second row
+						sourceRow = 1
 					case rowSpec == "<<<":
-						// Third data row
-						sourceRow = dataStartRow + 2
+						// Third row
+						sourceRow = 2
 					case rowSpec == ">":
 						// Last row
 						sourceRow = len(table) - 1

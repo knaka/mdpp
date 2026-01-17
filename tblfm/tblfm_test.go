@@ -313,13 +313,13 @@ func TestApply_RowAndColumnCopy(t *testing.T) {
 			},
 		},
 		{
-			name: "row copy - @3=@< (copy first data row to row 3)",
+			name: "row copy - @3=@<< (copy second row to row 3)",
 			input: [][]string{
 				{"a", "b", "c", "d", "e"},
 				{"1", "2", "3", "4", "5"},
 				{"", "", "", "", ""},
 			},
-			formulas: []string{"@3=@<"},
+			formulas: []string{"@3=@<<"},
 			expected: [][]string{
 				{"a", "b", "c", "d", "e"},
 				{"1", "2", "3", "4", "5"},
@@ -373,7 +373,7 @@ func TestApply_RowAndColumnCopy(t *testing.T) {
 			},
 		},
 		{
-			name: "row copy - @4=@<< (copy second data row to row 4)",
+			name: "row copy - @4=@<< (copy second row to row 4)",
 			input: [][]string{
 				{"a", "b", "c", "d", "e"},
 				{"1", "2", "3", "4", "5"},
@@ -385,11 +385,11 @@ func TestApply_RowAndColumnCopy(t *testing.T) {
 				{"a", "b", "c", "d", "e"},
 				{"1", "2", "3", "4", "5"},
 				{"6", "7", "8", "9", "10"},
-				{"6", "7", "8", "9", "10"},
+				{"1", "2", "3", "4", "5"},
 			},
 		},
 		{
-			name: "row copy - @5=@<<< (copy third data row to row 5)",
+			name: "row copy - @5=@<<< (copy third row to row 5)",
 			input: [][]string{
 				{"a", "b", "c", "d", "e"},
 				{"1", "2", "3", "4", "5"},
@@ -403,7 +403,7 @@ func TestApply_RowAndColumnCopy(t *testing.T) {
 				{"1", "2", "3", "4", "5"},
 				{"6", "7", "8", "9", "10"},
 				{"11", "12", "13", "14", "15"},
-				{"11", "12", "13", "14", "15"},
+				{"6", "7", "8", "9", "10"},
 			},
 		},
 		{

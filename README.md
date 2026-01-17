@@ -114,8 +114,8 @@ Processes the table above the directive using table formulas similar to Emacs Or
 |  |  |  |  |
 
 <!-- +TBLFM:
-  @2$>..@>>$>=$2*$3
-  @>$>=vsum(@<..@>>)
+  @<<$>..@>>$>=$2*$3
+  @>$>=vsum(@<<..@>>)
 -->
 ````
 
@@ -130,8 +130,8 @@ Processes the table above the directive using table formulas similar to Emacs Or
 |  |  |  | 49.6 |
 
 <!-- +TBLFM:
-  @2$>..@>>$>=$2*$3
-  @>$>=vsum(@<..@>>)
+  @<<$>..@>>$>=$2*$3
+  @>$>=vsum(@<<..@>>)
 -->
 ````
 
@@ -142,8 +142,8 @@ Cell references use Org-mode-style notation:
 - `$>` refers to the last column
 - `@>` refers to the last row
 - `@>>` refers to the second-to-last row
-- `@<` refers to the first data row
-- Ranges are specified with `..` (e.g., `@2$>..@>>$>` means "from row 2 last column to second-to-last row last column")
+- `@<` refers to the first row including header
+- Ranges are specified with `..` (e.g., `@<<$>..@>>$>` means "from row 2 last column to second-to-last row last column")
 - Multiple formulas can be specified, separated by newlines or `::`
 
 **Available functions:**
@@ -249,7 +249,7 @@ mdpp --allow-remote document.md
 
 - **Nested inclusion**: Files included with `+INCLUDE` can contain their own `+INCLUDE` directives, supporting multiple levels of nesting.
 - **Cycle detection**: The processor automatically detects and prevents infinite loops when files include each other in a cycle (works for both local files and URLs).
-- **Security**: Remote URL fetching is disabled by default and must be explicitly enabled with `--allow-remote` flag.
+- **Security**: Remote URL fetching is disabled by default and must be explicitly enabled with the `--allow-remote` flag.
 
 **Limitations:**
 
