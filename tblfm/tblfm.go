@@ -42,7 +42,7 @@ var getRegexps = sync.OnceValue(func() *regexps {
 	return &regexps{
 		// Formula parser: supports $4=$2*$3 (column), @3=@2 (row), @3$4=@2$2 (cell)
 		// Also supports range syntax: @2$>..@>>$>=@1$>
-		formulaRe: regexp.MustCompile(`^((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)(?:\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?))?=(.+)$`),
+		formulaRe: regexp.MustCompile(`^((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)(?:\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?))?\s*=\s*(.+)$`),
 		// Find cell references like @2$3, $2, $3, $-1, $-2 (with optional row)
 		// Supports <, <<, <<< (up to 3 levels) and >, >>, >>> (up to 3 levels)
 		cellRefRe: regexp.MustCompile(`(@([-+]?\d+|<{1,3}|>{1,3}))?(\$([-+]?\d+|<{1,3}|>{1,3}))`),

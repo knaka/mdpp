@@ -42,7 +42,7 @@ func TestApply_Arithmetic(t *testing.T) {
 				{"Apple", "100", "5", ""},
 				{"Orange", "150", "3", ""},
 			},
-			formulas: []string{"$4=$2*$3"},
+			formulas: []string{"$4 = $2 * $3"},
 			expected: [][]string{
 				{"Item", "Price", "Qty", "Total"},
 				{"Apple", "100", "5", "500"},

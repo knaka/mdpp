@@ -143,7 +143,7 @@ Processes the table above the directive using table formulas inspired by Emacs O
 | 10 |  |
 | 11 |  |
 | 123 |  |
-<!-- +TBLFM: $2="@1: " + (($1%2 == 0)? "Even": "Odd") -->
+<!-- +TBLFM: $2 = "@1: " + (($1%2 == 0)? "Even": "Odd") -->
 ```
 
 **Output:**
