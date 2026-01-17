@@ -412,13 +412,6 @@ func vminFunction(params ...any) (any, error) {
 	return min, nil
 }
 
-// getBuiltinConstants returns all built-in constants for expression evaluation.
-func getBuiltinConstants() map[string]any {
-	return map[string]any{
-		"pi": math.Pi,
-	}
-}
-
 // getBuiltinFunctions returns all built-in functions for expression evaluation.
 // Uses sync.OnceValue to ensure expr.Function is only called once.
 var getBuiltinFunctions = sync.OnceValue(func() []expr.Option {
