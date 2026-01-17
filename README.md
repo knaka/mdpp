@@ -101,7 +101,7 @@ Processes the table above the directive using a [Miller](https://miller.readthed
 ````
 
 #### +TBLFM
-Processes the table above the directive using table formulas similar to Emacs Org-mode's `#+TBLFM:` feature. This directive supports Org-mode-style cell references and formulas.
+Processes the table above the directive using table formulas inspired by Emacs Org-mode's `#+TBLFM:` feature. This directive uses Org-mode-style cell references (such as `@2`, `$3`, `@<`, `@>`) and provides commonly used aggregation functions (such as `vsum`, `vmean`), but formulas are evaluated using [Expr](https://expr-lang.org/), not Emacs Lisp. This means you can use JavaScript/Go-like syntax including ternary operators, string operations, and conditional expressions.
 
 **Input:**
 
@@ -134,6 +134,28 @@ Processes the table above the directive using table formulas similar to Emacs Or
   @>$>=vsum(@<<..@>>)
 -->
 ````
+
+**Input:**
+
+```markdown
+| Number | Parity |
+| --- | --- |
+| 10 |  |
+| 11 |  |
+| 123 |  |
+<!-- +TBLFM: $2="@1: " + (($1%2 == 0)? "Even": "Odd") -->
+```
+
+**Output:**
+
+```markdown
+| Number | Parity |
+| --- | --- |
+| 10 | Parity: Even |
+| 11 | Parity: Odd |
+| 123 | Parity: Odd |
+<!-- +TBLFM: $2="@1: " + (($1%2 == 0)? "Even": "Odd") -->
+```
 
 **Formula syntax:**
 
