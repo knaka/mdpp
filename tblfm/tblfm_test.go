@@ -1046,7 +1046,7 @@ func TestApply_BuiltinFunctions(t *testing.T) {
 	}
 }
 
-func TestApply_String(t *testing.T) {
+func TestApply_Lua(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    [][]string
@@ -1087,6 +1087,18 @@ func TestApply_String(t *testing.T) {
 			expected: [][]string{
 				{"String 1", "String 2", "Result"},
 				{"Hello \"Hello\"", "{1, 2, 3, 4}", "Hello \"Hello\"{1, 2, 3, 4}"},
+			},
+		},
+		{
+			name: "concatenation",
+			input: [][]string{
+				{"String 1", "String 2", "String 3", "Result"},
+				{"Hello", "World", "123", ""},
+			},
+			formulas: []string{"$4 = math.pi"},
+			expected: [][]string{
+				{"String 1", "String 2", "String 3", "Result"},
+				{"Hello", "World", "123", "3.141592653589793"},
 			},
 		},
 	}
