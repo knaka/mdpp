@@ -201,7 +201,7 @@ func TestTableInclude(t *testing.T) {
 | Old | Data | Here |
 | --- | --- | --- |
 | x | y | z |
-<!-- +TABLE_INCLUDE: misc/test_table.csv -->
+<!-- +TABLE_INCLUDE: testdata/test_table.csv -->
 
 Done.
 `),
@@ -212,7 +212,7 @@ Done.
 | Alice | 30 | Tokyo |
 | Bob | 25 | Osaka, Los Angeles "City of Angels" |
 | Charlie | 35 | Kyoto |
-<!-- +TABLE_INCLUDE: misc/test_table.csv -->
+<!-- +TABLE_INCLUDE: testdata/test_table.csv -->
 
 Done.
 `),
@@ -225,7 +225,7 @@ Done.
 | Old | Data |
 | :---: | :--- |
 | a | b |
-<!-- +TINCLUDE: misc/test_table.tsv -->
+<!-- +TINCLUDE: testdata/test_table.tsv -->
 
 Done.
 `),
@@ -236,7 +236,7 @@ Done.
 | Apple | 100 | 5 |
 | Banana | 80 | 10 |
 | Orange | 120 | 3 |
-<!-- +TINCLUDE: misc/test_table.tsv -->
+<!-- +TINCLUDE: testdata/test_table.tsv -->
 
 Done.
 `),
@@ -322,13 +322,13 @@ foo bar
 func TestSyncTitle(t *testing.T) {
 	input := []byte(`Links:
 
-Inline-links [link [contains] brackets](misc/foo.md)<!-- +TITLE -->
-and [escaped \[ bracket](./misc/bar.md)<!-- +SYNC_TITLE --> works.
+Inline-links [link [contains] brackets](testdata/foo.md)<!-- +TITLE -->
+and [escaped \[ bracket](./testdata/bar.md)<!-- +SYNC_TITLE --> works.
 `)
 	expected := []byte(`Links:
 
-Inline-links [foo](misc/foo.md)<!-- +TITLE -->
-and [Bar ドキュメント](./misc/bar.md)<!-- +SYNC_TITLE --> works.
+Inline-links [foo](testdata/foo.md)<!-- +TITLE -->
+and [Bar ドキュメント](./testdata/bar.md)<!-- +SYNC_TITLE --> works.
 `)
 	writer := bytes.NewBuffer(nil)
 	V0(Process(input, writer, nil))
@@ -350,7 +350,7 @@ func TestIncludeDirective(t *testing.T) {
 
 Some content before include.
 
-<!-- +INCLUDE: misc/include_test.md -->
+<!-- +INCLUDE: testdata/include_test.md -->
 <!-- +END -->
 
 Some content after include.
@@ -359,7 +359,7 @@ Some content after include.
 
 Some content before include.
 
-<!-- +INCLUDE: misc/include_test.md -->
+<!-- +INCLUDE: testdata/include_test.md -->
 # Included Content
 
 This is content from an included file.
@@ -397,13 +397,13 @@ Done.
 			name: "include without matching end",
 			input: []byte(`# Test
 
-<!-- +INCLUDE: misc/include_test.md -->
+<!-- +INCLUDE: testdata/include_test.md -->
 
 Some text without END directive.
 `),
 			expected: []byte(`# Test
 
-<!-- +INCLUDE: misc/include_test.md -->
+<!-- +INCLUDE: testdata/include_test.md -->
 
 Some text without END directive.
 `),
@@ -414,7 +414,7 @@ Some text without END directive.
 
 Including nested content:
 
-<!-- +INCLUDE: misc/nested_level1.md -->
+<!-- +INCLUDE: testdata/nested_level1.md -->
 <!-- +END -->
 
 Done.
@@ -423,12 +423,12 @@ Done.
 
 Including nested content:
 
-<!-- +INCLUDE: misc/nested_level1.md -->
+<!-- +INCLUDE: testdata/nested_level1.md -->
 # Level 1 Content
 
 This includes content from level 2:
 
-<!-- +INCLUDE: misc/nested_level2.md -->
+<!-- +INCLUDE: testdata/nested_level2.md -->
 ## Level 2 Content
 
 This is the deepest level of nesting.
@@ -444,24 +444,24 @@ Done.
 			name: "cyclic include detection",
 			input: []byte(`# Test Cycles
 
-<!-- +INCLUDE: misc/cycle_a.md -->
+<!-- +INCLUDE: testdata/cycle_a.md -->
 <!-- +END -->
 
 End of test.
 `),
 			expected: []byte(`# Test Cycles
 
-<!-- +INCLUDE: misc/cycle_a.md -->
+<!-- +INCLUDE: testdata/cycle_a.md -->
 # File A
 
 This file includes File B:
 
-<!-- +INCLUDE: misc/cycle_b.md -->
+<!-- +INCLUDE: testdata/cycle_b.md -->
 # File B
 
 This file includes File A (creating a cycle):
 
-<!-- +INCLUDE: misc/cycle_a.md -->
+<!-- +INCLUDE: testdata/cycle_a.md -->
 <!-- +END -->
 <!-- +END -->
 <!-- +END -->
@@ -473,19 +473,19 @@ End of test.
 			name: "canonical path cycle detection",
 			input: []byte(`# Test Canonical Path Cycles
 
-<!-- +INCLUDE: misc/canonical_test_a.md -->
+<!-- +INCLUDE: testdata/canonical_test_a.md -->
 <!-- +END -->
 
 End of canonical test.
 `),
 			expected: []byte(`# Test Canonical Path Cycles
 
-<!-- +INCLUDE: misc/canonical_test_a.md -->
+<!-- +INCLUDE: testdata/canonical_test_a.md -->
 # File A (canonical test)
 
 This file includes File B using different path:
 
-<!-- +INCLUDE: misc/canonical_test_b.md -->
+<!-- +INCLUDE: testdata/canonical_test_b.md -->
 # File B (canonical test)
 
 This file includes File A using different path representation:
@@ -539,7 +539,7 @@ func TestCodeBlock(t *testing.T) {
   bar
   ` + "```" + `
 
-  <!-- +CODE: misc/hello.c -->
+  <!-- +CODE: testdata/hello.c -->
 `),
 			expected: []byte(`Code block:
 
@@ -553,7 +553,7 @@ func TestCodeBlock(t *testing.T) {
   }
   ` + "```" + `
 
-  <!-- +CODE: misc/hello.c -->
+  <!-- +CODE: testdata/hello.c -->
 `),
 		},
 		{
@@ -565,7 +565,7 @@ func TestCodeBlock(t *testing.T) {
   ` + "````" + `
   ` + "````" + `
 
-  <!-- +CODE: misc/hello.c -->
+  <!-- +CODE: testdata/hello.c -->
 `),
 			expected: []byte(`Code block:
 
@@ -579,7 +579,7 @@ func TestCodeBlock(t *testing.T) {
   }
   ` + "````" + `
 
-  <!-- +CODE: misc/hello.c -->
+  <!-- +CODE: testdata/hello.c -->
 `),
 		},
 		{
@@ -591,7 +591,7 @@ func TestCodeBlock(t *testing.T) {
       int x = 10;
       printf("%d", x);
 
-  <!-- +CODE: misc/hello.c -->
+  <!-- +CODE: testdata/hello.c -->
 `),
 			expected: []byte(`Code block:
 
@@ -603,7 +603,7 @@ func TestCodeBlock(t *testing.T) {
         printf("Hello!\n");
       }
 
-  <!-- +CODE: misc/hello.c -->
+  <!-- +CODE: testdata/hello.c -->
 `),
 		},
 		{
@@ -617,7 +617,7 @@ func TestCodeBlock(t *testing.T) {
   bar
   ~~~
 
-  <!-- +CODE: misc/hello.c -->
+  <!-- +CODE: testdata/hello.c -->
 `),
 			expected: []byte(`Code block:
 
@@ -631,7 +631,7 @@ func TestCodeBlock(t *testing.T) {
   }
   ~~~
 
-  <!-- +CODE: misc/hello.c -->
+  <!-- +CODE: testdata/hello.c -->
 `),
 		},
 	}

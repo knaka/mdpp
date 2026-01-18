@@ -101,7 +101,7 @@ Processes the table above the directive using a [Miller](https://miller.readthed
 ````
 
 #### +TBLFM
-Processes the table above the directive using table formulas inspired by Emacs Org-mode's `#+TBLFM:` feature. This directive uses Org-mode-style cell references (such as `@2`, `$3`, `@<`, `@>`) and provides commonly used aggregation functions (such as `vsum`, `vmean`), but formulas are evaluated using [Expr](https://expr-lang.org/), not Emacs Lisp. This means you can use JavaScript/Go-like syntax including ternary operators, string operations, and conditional expressions.
+Processes the table above the directive using table formulas inspired by Emacs Org-mode's `#+TBLFM:` feature. This directive uses Org-mode-style cell references (such as `@2`, `$3`, `@<`, `@>`) and provides commonly used aggregation functions (such as `vsum`, `vmean`), but formulas are evaluated using [Lua](https://www.lua.org/), not Emacs Lisp. This means you can use Lua's flexible syntax including string operations and conditional expressions.
 
 **Input:**
 
@@ -135,6 +135,8 @@ Processes the table above the directive using table formulas inspired by Emacs O
 -->
 ````
 
+While Lua's string concatenation operator `..` visually resembles the range operator `..`, their functionalities are distinct. To avoid ambiguity, it is recommended to add spaces around the concatenation operator `..` or enclose cell references in parentheses when used with concatenation (e.g., `(@1) .. "text"`).
+
 **Input:**
 
 ```markdown
@@ -143,7 +145,8 @@ Processes the table above the directive using table formulas inspired by Emacs O
 | 10 |  |
 | 11 |  |
 | 123 |  |
-<!-- +TBLFM: $2 = "@1: " + (($1%2 == 0)? "Even": "Odd") -->
+
+<!-- +TBLFM: $2 = @1 .. " (Ja: パリティ): " .. (($1 % 2 == 0) and "Even" or "Odd") -->
 ```
 
 **Output:**
@@ -151,10 +154,11 @@ Processes the table above the directive using table formulas inspired by Emacs O
 ```markdown
 | Number | Parity |
 | --- | --- |
-| 10 | Parity: Even |
-| 11 | Parity: Odd |
-| 123 | Parity: Odd |
-<!-- +TBLFM: $2="@1: " + (($1%2 == 0)? "Even": "Odd") -->
+| 10 | Parity (Ja: パリティ): Even |
+| 11 | Parity (Ja: パリティ): Odd |
+| 123 | Parity (Ja: パリティ): Odd |
+
+<!-- +TBLFM: $2 = @1 .. " (Ja: パリティ): " .. (($1 % 2 == 0) and "Even" or "Odd") -->
 ```
 
 **Formula syntax:**
@@ -170,7 +174,7 @@ Cell references use Org-mode-style notation:
 
 **Available functions:**
 
-Formulas are evaluated using [Expr](https://expr-lang.org/), which provides access to:
+Formulas are evaluated using [Lua](https://www.lua.org/) interpreter, which provides access to:
 
 - **Vector functions** for operating on ranges:
   - `vsum(range)` - Sum of values
@@ -179,16 +183,7 @@ Formulas are evaluated using [Expr](https://expr-lang.org/), which provides acce
   - `vmax(range)` - Maximum value
   - `vmin(range)` - Minimum value
 
-- **Mathematical functions**:
-  - `exp(x)` - Exponential function (e^x)
-  - `abs(x)`, `ceil(x)`, `floor(x)`, `round(x)` - Rounding functions
-  - `sqrt(x)`, `pow(x, y)` - Power and square root
-
-- **Random number generation**:
-  - `random(start, end)` - Random integer in range [start, end]
-  - `randomf()` - Random float in range [0.0, 1.0)
-
-- All other [Expr built-in functions](https://expr-lang.org/docs/language-definition) including arithmetic operators, comparison operators, logical operators, and string operations
+- All other [Lua built-in functions and standard libraries](https://www.lua.org/manual/5.4/manual.html) including arithmetic operators, comparison operators, logical operators, and string operations.
 
 #### +TABLE_INCLUDE / +TINCLUDE
 

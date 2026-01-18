@@ -1025,34 +1025,6 @@ func TestApply_BuiltinFunctions(t *testing.T) {
 				{"2", "7.38905609893065"},
 			},
 		},
-		{
-			name: "pi constant",
-			input: [][]string{
-				{"Constant", "Value"},
-				{"pi", ""},
-			},
-			formulas: []string{
-				"@2$2=pi",
-			},
-			expected: [][]string{
-				{"Constant", "Value"},
-				{"pi", "3.141592653589793"},
-			},
-		},
-		{
-			name: "exp and pi together",
-			input: [][]string{
-				{"Expression", "Result"},
-				{"exp(pi)", ""},
-			},
-			formulas: []string{
-				"@2$2=exp(pi)",
-			},
-			expected: [][]string{
-				{"Expression", "Result"},
-				{"exp(pi)", "23.140692632779267"},
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -1069,6 +1041,65 @@ func TestApply_BuiltinFunctions(t *testing.T) {
 						t.Errorf("Row %d: Got: %v, Want: %v", i, result[i], tt.expected[i])
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestApply_String(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    [][]string
+		formulas []string
+		expected [][]string
+	}{
+		{
+			name: "concatenation",
+			input: [][]string{
+				{"String 1", "String 2", "String 3", "Result"},
+				{"Hello", "World", "123", ""},
+			},
+			formulas: []string{"$4 = $1 .. $2 .. $3"},
+			expected: [][]string{
+				{"String 1", "String 2", "String 3", "Result"},
+				{"Hello", "World", "123", "HelloWorld123"},
+			},
+		},
+		{
+			name: "addition",
+			input: [][]string{
+				{"String 1", "String 2", "String 3", "Result"},
+				{"Hello", "123", "123", ""},
+			},
+			formulas: []string{"$4=$1..($2+$3)"},
+			expected: [][]string{
+				{"String 1", "String 2", "String 3", "Result"},
+				{"Hello", "123", "123", "Hello246"},
+			},
+		},
+		{
+			name: "escapable chars",
+			input: [][]string{
+				{"String 1", "String 2", "Result"},
+				{"Hello \"Hello\"", "{1, 2, 3, 4}", ""},
+			},
+			formulas: []string{"$3 = $1 .. $2"},
+			expected: [][]string{
+				{"String 1", "String 2", "Result"},
+				{"Hello \"Hello\"", "{1, 2, 3, 4}", "Hello \"Hello\"{1, 2, 3, 4}"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Apply(tt.input, tt.formulas)
+			if err != nil {
+				t.Fatalf("Apply() returned error: %v", err)
+			}
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("Apply() returned unexpected result\nGot:  %v\nWant: %v", result, tt.expected)
 			}
 		})
 	}

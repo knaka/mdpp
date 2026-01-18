@@ -2,5 +2,5 @@
 
 This file includes File B using different path:
 
-<!-- +INCLUDE: misc/canonical_test_b.md -->
+<!-- +INCLUDE: testdata/canonical_test_b.md -->
 <!-- +END -->

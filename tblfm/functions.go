@@ -2,471 +2,135 @@ package tblfm
 
 import (
 	"math"
-	"math/rand/v2"
+	"sort"
 	"strconv"
-	"sync"
 
-	"github.com/expr-lang/expr"
+	lua "github.com/yuin/gopher-lua"
 )
 
-// vsumFunction is an Expr function to calculate the sum of values.
-func vsumFunction(params ...any) (any, error) {
-	if len(params) == 0 {
-		return 0.0, nil
-	}
-
-	// Handle array parameter
-	if arr, ok := params[0].([]any); ok {
-		var sum float64
-		for _, v := range arr {
-			switch val := v.(type) {
-			case int:
-				sum += float64(val)
-			case int64:
-				sum += float64(val)
-			case float64:
-				sum += val
-			case string:
-				if num, err := strconv.ParseFloat(val, 64); err == nil {
-					sum += num
-				}
-			}
-		}
-		return sum, nil
-	}
-
-	// Handle variadic parameters
-	var sum float64
-	for _, v := range params {
-		switch val := v.(type) {
-		case int:
-			sum += float64(val)
-		case int64:
-			sum += float64(val)
-		case float64:
-			sum += val
-		case string:
-			if num, err := strconv.ParseFloat(val, 64); err == nil {
-				sum += num
-			}
-		}
-	}
-	return sum, nil
+// registerBuiltinFunctions registers all built-in functions for Lua expression evaluation.
+func registerBuiltinFunctions(L *lua.LState) {
+	L.SetGlobal("vsum", L.NewFunction(vsumFunction))
+	L.SetGlobal("vmean", L.NewFunction(vmeanFunction))
+	L.SetGlobal("vmax", L.NewFunction(vmaxFunction))
+	L.SetGlobal("vmin", L.NewFunction(vminFunction))
+	L.SetGlobal("vmedian", L.NewFunction(vmedianFunction))
+	L.SetGlobal("exp", L.NewFunction(expFunction))
 }
 
-// vmaxFunction is an Expr function to find the maximum value.
-func vmaxFunction(params ...any) (any, error) {
-	if len(params) == 0 {
-		return 0.0, nil
-	}
-
-	var max float64
-	var hasValue bool
-
-	// Handle array parameter
-	if arr, ok := params[0].([]any); ok {
-		for _, v := range arr {
-			switch val := v.(type) {
-			case int:
-				fval := float64(val)
-				if !hasValue || fval > max {
-					max = fval
-					hasValue = true
-				}
-			case int64:
-				fval := float64(val)
-				if !hasValue || fval > max {
-					max = fval
-					hasValue = true
-				}
-			case float64:
-				if !hasValue || val > max {
-					max = val
-					hasValue = true
-				}
-			case string:
-				if num, err := strconv.ParseFloat(val, 64); err == nil {
-					if !hasValue || num > max {
-						max = num
-						hasValue = true
-					}
-				}
-			}
-		}
-		if !hasValue {
-			return 0.0, nil
-		}
-		return max, nil
-	}
-
-	// Handle variadic parameters
-	for _, v := range params {
-		switch val := v.(type) {
-		case int:
-			fval := float64(val)
-			if !hasValue || fval > max {
-				max = fval
-				hasValue = true
-			}
-		case int64:
-			fval := float64(val)
-			if !hasValue || fval > max {
-				max = fval
-				hasValue = true
-			}
-		case float64:
-			if !hasValue || val > max {
-				max = val
-				hasValue = true
-			}
-		case string:
-			if num, err := strconv.ParseFloat(val, 64); err == nil {
-				if !hasValue || num > max {
-					max = num
-					hasValue = true
-				}
-			}
-		}
-	}
-	if !hasValue {
-		return 0.0, nil
-	}
-	return max, nil
+// vsumFunction is a Lua function to calculate the sum of values.
+func vsumFunction(L *lua.LState) int {
+	sum := 0.0
+	processTable(L, func(v float64) {
+		sum += v
+	})
+	L.Push(lua.LNumber(sum))
+	return 1
 }
 
-// vmeanFunction is an Expr function to calculate the mean (average) of values.
-func vmeanFunction(params ...any) (any, error) {
-	if len(params) == 0 {
-		return 0.0, nil
-	}
-
-	// Handle array parameter
-	if arr, ok := params[0].([]any); ok {
-		if len(arr) == 0 {
-			return 0.0, nil
-		}
-		var sum float64
-		var count int
-		for _, v := range arr {
-			switch val := v.(type) {
-			case int:
-				sum += float64(val)
-				count++
-			case int64:
-				sum += float64(val)
-				count++
-			case float64:
-				sum += val
-				count++
-			case string:
-				if num, err := strconv.ParseFloat(val, 64); err == nil {
-					sum += num
-					count++
-				}
-			}
-		}
-		if count == 0 {
-			return 0.0, nil
-		}
-		return sum / float64(count), nil
-	}
-
-	// Handle variadic parameters
+// vmeanFunction is a Lua function to calculate the mean of values.
+func vmeanFunction(L *lua.LState) int {
 	var sum float64
 	var count int
-	for _, v := range params {
-		switch val := v.(type) {
-		case int:
-			sum += float64(val)
-			count++
-		case int64:
-			sum += float64(val)
-			count++
-		case float64:
-			sum += val
-			count++
-		case string:
-			if num, err := strconv.ParseFloat(val, 64); err == nil {
-				sum += num
-				count++
-			}
-		}
-	}
+	processTable(L, func(v float64) {
+		sum += v
+		count++
+	})
 	if count == 0 {
-		return 0.0, nil
+		L.Push(lua.LNumber(0))
+		return 1
 	}
-	return sum / float64(count), nil
+	L.Push(lua.LNumber(sum / float64(count)))
+	return 1
 }
 
-// vmedianFunction is an Expr function to calculate the median of values.
-func vmedianFunction(params ...any) (any, error) {
-	if len(params) == 0 {
-		return 0.0, nil
-	}
-
-	var values []float64
-
-	// Handle array parameter
-	if arr, ok := params[0].([]any); ok {
-		for _, v := range arr {
-			switch val := v.(type) {
-			case int:
-				values = append(values, float64(val))
-			case int64:
-				values = append(values, float64(val))
-			case float64:
-				values = append(values, val)
-			case string:
-				if num, err := strconv.ParseFloat(val, 64); err == nil {
-					values = append(values, num)
-				}
-			}
+// vmaxFunction is a Lua function to find the maximum value.
+func vmaxFunction(L *lua.LState) int {
+	var max float64
+	var hasValue bool
+	processTable(L, func(v float64) {
+		if !hasValue || v > max {
+			max = v
+			hasValue = true
 		}
-	} else {
-		// Handle variadic parameters
-		for _, v := range params {
-			switch val := v.(type) {
-			case int:
-				values = append(values, float64(val))
-			case int64:
-				values = append(values, float64(val))
-			case float64:
-				values = append(values, val)
-			case string:
-				if num, err := strconv.ParseFloat(val, 64); err == nil {
-					values = append(values, num)
-				}
-			}
-		}
+	})
+	if !hasValue {
+		L.Push(lua.LNumber(0))
+		return 1
 	}
-
-	if len(values) == 0 {
-		return 0.0, nil
-	}
-
-	// Sort values
-	for i := 0; i < len(values); i++ {
-		for j := i + 1; j < len(values); j++ {
-			if values[i] > values[j] {
-				values[i], values[j] = values[j], values[i]
-			}
-		}
-	}
-
-	// Calculate median
-	n := len(values)
-	if n%2 == 0 {
-		return (values[n/2-1] + values[n/2]) / 2.0, nil
-	}
-	return values[n/2], nil
+	L.Push(lua.LNumber(max))
+	return 1
 }
 
-// randomFunction returns a random integer in the range [start, end].
-func randomFunction(params ...any) (any, error) {
-	if len(params) < 2 {
-		return 0, nil
-	}
-
-	var start, end int64
-
-	// Parse start parameter
-	switch val := params[0].(type) {
-	case int:
-		start = int64(val)
-	case int64:
-		start = val
-	case float64:
-		start = int64(val)
-	case string:
-		if num, err := strconv.ParseInt(val, 10, 64); err == nil {
-			start = num
-		}
-	}
-
-	// Parse end parameter
-	switch val := params[1].(type) {
-	case int:
-		end = int64(val)
-	case int64:
-		end = val
-	case float64:
-		end = int64(val)
-	case string:
-		if num, err := strconv.ParseInt(val, 10, 64); err == nil {
-			end = num
-		}
-	}
-
-	if start > end {
-		start, end = end, start
-	}
-
-	return start + rand.Int64N(end-start+1), nil
-}
-
-// randomfFunction returns a random float in the range [0.0, 1.0).
-func randomfFunction(params ...any) (any, error) {
-	return rand.Float64(), nil
-}
-
-// expFunction returns e raised to the power of the given value.
-func expFunction(params ...any) (any, error) {
-	if len(params) == 0 {
-		return 1.0, nil
-	}
-
-	var val float64
-	switch v := params[0].(type) {
-	case int:
-		val = float64(v)
-	case int64:
-		val = float64(v)
-	case float64:
-		val = v
-	case string:
-		if num, err := strconv.ParseFloat(v, 64); err == nil {
-			val = num
-		}
-	}
-
-	return math.Exp(val), nil
-}
-
-// vminFunction is an Expr function to find the minimum value.
-func vminFunction(params ...any) (any, error) {
-	if len(params) == 0 {
-		return 0.0, nil
-	}
-
+// vminFunction is a Lua function to find the minimum value.
+func vminFunction(L *lua.LState) int {
 	var min float64
 	var hasValue bool
-
-	// Handle array parameter
-	if arr, ok := params[0].([]any); ok {
-		for _, v := range arr {
-			switch val := v.(type) {
-			case int:
-				fval := float64(val)
-				if !hasValue || fval < min {
-					min = fval
-					hasValue = true
-				}
-			case int64:
-				fval := float64(val)
-				if !hasValue || fval < min {
-					min = fval
-					hasValue = true
-				}
-			case float64:
-				if !hasValue || val < min {
-					min = val
-					hasValue = true
-				}
-			case string:
-				if num, err := strconv.ParseFloat(val, 64); err == nil {
-					if !hasValue || num < min {
-						min = num
-						hasValue = true
-					}
-				}
-			}
+	processTable(L, func(v float64) {
+		if !hasValue || v < min {
+			min = v
+			hasValue = true
 		}
-		if !hasValue {
-			return 0.0, nil
-		}
-		return min, nil
-	}
-
-	// Handle variadic parameters
-	for _, v := range params {
-		switch val := v.(type) {
-		case int:
-			fval := float64(val)
-			if !hasValue || fval < min {
-				min = fval
-				hasValue = true
-			}
-		case int64:
-			fval := float64(val)
-			if !hasValue || fval < min {
-				min = fval
-				hasValue = true
-			}
-		case float64:
-			if !hasValue || val < min {
-				min = val
-				hasValue = true
-			}
-		case string:
-			if num, err := strconv.ParseFloat(val, 64); err == nil {
-				if !hasValue || num < min {
-					min = num
-					hasValue = true
-				}
-			}
-		}
-	}
+	})
 	if !hasValue {
-		return 0.0, nil
+		L.Push(lua.LNumber(0))
+		return 1
 	}
-	return min, nil
+	L.Push(lua.LNumber(min))
+	return 1
 }
 
-// getBuiltinFunctions returns all built-in functions for expression evaluation.
-// Uses sync.OnceValue to ensure expr.Function is only called once.
-var getBuiltinFunctions = sync.OnceValue(func() []expr.Option {
-	// Sort in dictionary order.
-	return []expr.Option{
-		// `abs` is a builtin.
-		// `ceil` is a builtin.
-		expr.Function(
-			"exp",
-			expFunction,
-			new(func(float64) float64),
-		),
-		// `floor` is a builtin.
-		// `int` is a builtin.
-		// `mean` is a builtin.
-		expr.Function(
-			"random",
-			randomFunction,
-			new(func(int64, int64) int64),
-		),
-		expr.Function(
-			"randomf",
-			randomfFunction,
-			new(func() float64),
-		),
-		// `round` is a builtin.
-		expr.Function(
-			"vmax",
-			vmaxFunction,
-			new(func([]any) float64),
-			new(func(...any) float64),
-		),
-		expr.Function(
-			"vmean",
-			vmeanFunction,
-			new(func([]any) float64),
-			new(func(...any) float64),
-		),
-		expr.Function(
-			"vmedian",
-			vmedianFunction,
-			new(func([]any) float64),
-			new(func(...any) float64),
-		),
-		expr.Function(
-			"vmin",
-			vminFunction,
-			new(func([]any) float64),
-			new(func(...any) float64),
-		),
-		expr.Function(
-			"vsum",
-			vsumFunction,
-			new(func([]any) float64),
-			new(func(...any) float64),
-		),
+// vmedianFunction is a Lua function to calculate the median of values.
+func vmedianFunction(L *lua.LState) int {
+	var values []float64
+	processTable(L, func(v float64) {
+		values = append(values, v)
+	})
+
+	if len(values) == 0 {
+		L.Push(lua.LNumber(0))
+		return 1
 	}
-})
+
+	sort.Float64s(values)
+
+	n := len(values)
+	if n%2 == 0 {
+		L.Push(lua.LNumber((values[n/2-1] + values[n/2]) / 2.0))
+	} else {
+		L.Push(lua.LNumber(values[n/2]))
+	}
+	return 1
+}
+
+// expFunction is a Lua function for math.Exp.
+func expFunction(L *lua.LState) int {
+	val := L.ToNumber(1)
+	L.Push(lua.LNumber(math.Exp(float64(val))))
+	return 1
+}
+
+// processTable is a helper to extract numbers from a Lua table at arg 1.
+func processTable(L *lua.LState, processor func(float64)) {
+	tbl := L.ToTable(1)
+	if tbl == nil {
+		return
+	}
+
+	tbl.ForEach(func(_, val lua.LValue) {
+		var f float64
+		var err error
+		switch v := val.(type) {
+		case lua.LNumber:
+			f = float64(v)
+		case lua.LString:
+			f, err = strconv.ParseFloat(string(v), 64)
+			if err != nil {
+				return // Skip non-numeric strings
+			}
+		default:
+			return // Skip other types
+		}
+		processor(f)
+	})
+}

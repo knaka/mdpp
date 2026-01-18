@@ -10,6 +10,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/yuin/goldmark v1.7.8
 	github.com/yuin/goldmark-meta v1.0.0
+	github.com/yuin/gopher-lua v1.1.1
 )
 
 require (
@@ -30,7 +31,6 @@ require (
 )
 
 require (
-	github.com/expr-lang/expr v1.17.7
 	github.com/johnkerl/miller/v6 v6.13.0
 	github.com/knaka/go-utils v0.1.12
 	github.com/sergi/go-diff v1.2.0 // indirect
