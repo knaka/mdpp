@@ -17,6 +17,8 @@ github.com/klauspost/compress v1.17.10 h1:oXAz+Vh0PMUvJczoi+flxpnBEPxoER1IaAnU/N
 github.com/klauspost/compress v1.17.10/go.mod h1:pMDklpSncoRMuLFrf1W9Ss9KT+0rH90U12bZKk7uwG0=
 github.com/knaka/go-utils v0.1.12 h1:azJ532NEhTD8iqlu7rrRGxVAdKhU7A3fti9FBnTQvac=
 github.com/knaka/go-utils v0.1.12/go.mod h1:h/mSJpi4QHHvorx6tz6/PlT9BLw7iJuxouLrd4iLYOE=
+github.com/knaka/tblcalc v0.9.0 h1:dqqH64+xJ2chxOKtPOlTH2IpgDeHiCkThjUi3a36DDs=
+github.com/knaka/tblcalc v0.9.0/go.mod h1:FTuO5bXNjeMXzfAmFRw3l1j4oWarMFsY/aRZFHipQzo=
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=

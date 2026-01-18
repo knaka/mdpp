@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	gmast "github.com/yuin/goldmark/ast"
+
+	//revive:disable-next-line:dot-imports
+	. "github.com/knaka/go-utils"
 )
 
 func TestAST(t *testing.T) {
@@ -34,7 +37,7 @@ bar
 <!-- baz -->
 `)
 	mdTree, _ := gmParse(sourceMD)
-	gmast.Walk(mdTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
+	Must(gmast.Walk(mdTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {
 			return gmast.WalkContinue, nil
 		}
@@ -56,7 +59,7 @@ bar
 			t.Logf("  Line %d-%d: %s", line.Start, line.Stop, sourceMD[line.Start:line.Stop])
 		}
 		return gmast.WalkContinue, nil
-	})
+	}))
 	// mdTree.Dump(sourceMD, 0)
 }
 
@@ -67,7 +70,7 @@ And this is a ![image name](./bar.png) !
 `)
 	mdTree, _ := gmParse(sourceMD)
 	// mdTree.Dump(sourceMD, 0)
-	gmast.Walk(mdTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
+	Must(gmast.Walk(mdTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {
 			return gmast.WalkContinue, nil
 		}
@@ -92,5 +95,5 @@ And this is a ![image name](./bar.png) !
 			}
 		}
 		return gmast.WalkContinue, nil
-	})
+	}))
 }

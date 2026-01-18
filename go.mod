@@ -10,7 +10,6 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/yuin/goldmark v1.7.8
 	github.com/yuin/goldmark-meta v1.0.0
-	github.com/yuin/gopher-lua v1.1.1
 )
 
 require (
@@ -24,6 +23,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/nine-lives-later/go-windows-terminal-sequences v1.0.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	golang.org/x/term v0.24.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 // indirect
@@ -33,6 +33,7 @@ require (
 require (
 	github.com/johnkerl/miller/v6 v6.13.0
 	github.com/knaka/go-utils v0.1.12
+	github.com/knaka/tblcalc v0.9.0
 	github.com/sergi/go-diff v1.2.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect

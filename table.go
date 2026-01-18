@@ -8,8 +8,7 @@ import (
 	"path"
 	"strings"
 
-	// tblfm "github.com/knaka/mdpp/tblfmexpr"
-	"github.com/knaka/mdpp/tblfm"
+	"github.com/knaka/tblcalc/tblfm"
 
 	gmast "github.com/yuin/goldmark/ast"
 	gmextast "github.com/yuin/goldmark/extension/ast"
@@ -199,7 +198,7 @@ func processTBLFMTable(
 ) {
 	return processTable(sourceMD, writer, writePos, directiveNode, func(tableData [][]string, hasHeader bool) [][]string {
 		// Apply TBLFM formulas
-		tblfm.Apply(tableData, tblfmScripts, tblfm.WithHeader(hasHeader))
+		Must(tblfm.Apply(tableData, tblfmScripts, tblfm.WithHeader(hasHeader)))
 		return tableData
 	})
 }

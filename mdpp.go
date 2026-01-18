@@ -1,3 +1,4 @@
+// Package mdpp evaluate markdown text.
 package mdpp
 
 import (
@@ -125,7 +126,7 @@ var regexpEndDirective = sync.OnceValue(func() *regexp.Regexp {
 func mkdirTemp() (string, func()) {
 	tempDirPath := V(os.MkdirTemp("", "mdpp"))
 	return tempDirPath, func() {
-		os.RemoveAll(tempDirPath)
+		_ = os.RemoveAll(tempDirPath)
 	}
 }
 
@@ -144,7 +145,7 @@ func fetchURL(urlStr string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer (func() { _ = resp.Body.Close() })()
 	return io.ReadAll(resp.Body)
 }
 
@@ -320,7 +321,7 @@ func Process(
 		if err2 != nil {
 			return fmt.Errorf("failed to get current directory: %w", err2)
 		}
-		defer os.Chdir(currentDir)
+		defer (func() { _ = os.Chdir(currentDir) })()
 		if err2 := os.Chdir(*dirPathOpt); err2 != nil {
 			return fmt.Errorf("failed to change directory to %s: %w", *dirPathOpt, err2)
 		}
@@ -359,9 +360,7 @@ func Process(
 				tblfmScript := matches[tblfmScriptIndex]
 				var tblfmScripts []string
 				for _, line := range strings.Split(tblfmScript, "\n") {
-					for _, script := range strings.Split(line, "::") {
-						tblfmScripts = append(tblfmScripts, script)
-					}
+					tblfmScripts = append(tblfmScripts, strings.Split(line, "::")...)
 				}
 				cursor = processTBLFMTable(sourceMD, writer, cursor, htmlBlockNode, tblfmScripts)
 			} else

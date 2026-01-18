@@ -1,0 +1,32 @@
+version: 2
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - unused
+    - exhaustive
+    - revive
+  # disable:
+  #   # The "meta-linter" staticcheck seems to run even without explicit enable. It stops when explicitly disabled.
+  #   - staticcheck
+  # Settings – Golangci-lint https://golangci-lint.run/docs/linters/configuration/
+  settings:
+    staticcheck:
+      checks:
+        - "all"
+      # Disable staticcheck's dot-imports check.
+      # - "-ST1001"
+      dot-import-whitelist:
+        - "github.com/knaka/go-utils"
+    revive:
+      rules:
+      - name: dot-imports
+        # Disable revive's dot-imports check.
+        disabled: true
+        # disabled: false
+        # arguments:
+        #   allowedPackages:
+        #     - "github.com/knaka/go-utils"

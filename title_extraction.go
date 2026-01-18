@@ -7,6 +7,9 @@ import (
 
 	gmmeta "github.com/yuin/goldmark-meta"
 	gmast "github.com/yuin/goldmark/ast"
+
+	//revive:disable-next-line:dot-imports
+	. "github.com/knaka/go-utils"
 )
 
 // getMDTitle extracts the title from a Markdown file in the following order:
@@ -28,7 +31,7 @@ func getMDTitle(
 		}
 	}
 	var h1HeadingNode *gmast.Heading
-	gmast.Walk(syntaxTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
+	Must(gmast.Walk(syntaxTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
 		if !entering {
 			return gmast.WalkContinue, nil
 		}
@@ -47,7 +50,7 @@ func getMDTitle(
 			}
 		}
 		return gmast.WalkContinue, nil
-	})
+	}))
 	if h1HeadingNode != nil {
 		return string(h1HeadingNode.Lines().Value(markdownContent))
 	}

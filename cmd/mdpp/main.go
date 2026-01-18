@@ -66,7 +66,7 @@ func mdppMain(args []string) (err error) {
 			if inPath == stdinFileName {
 				inDirPath = "."
 				if inPlace {
-					return fmt.Errorf("Cannot use in-place mode with standard input")
+					return fmt.Errorf("cannot use in-place mode with standard input")
 				}
 				inFile = os.Stdin
 			} else {
@@ -78,15 +78,15 @@ func mdppMain(args []string) (err error) {
 				inDirPath = filepath.Dir(inPath)
 				inFile, err = os.Open(inPath)
 				if err != nil {
-					return fmt.Errorf("Failed to open inFile outFile: %s Error: %v", inPath, err)
+					return fmt.Errorf("failed to open inFile outFile: %s Error: %v", inPath, err)
 				}
-				defer inFile.Close()
+				defer (func() { _ = inFile.Close() })()
 			}
 			var outFile *os.File
 			if inPlace {
 				outFile, err = os.CreateTemp("", appID)
 				if err != nil {
-					return fmt.Errorf("Failed to create temporary outFile: %v", err)
+					return fmt.Errorf("failed to create temporary outFile: %v", err)
 				}
 				defer func() {
 					_ = outFile.Close()
@@ -98,27 +98,27 @@ func mdppMain(args []string) (err error) {
 			var sourceMD []byte
 			sourceMD, err = io.ReadAll(inFile)
 			if err != nil {
-				return fmt.Errorf("Failed to read inFile: %s Error: %v", inPath, err)
+				return fmt.Errorf("failed to read inFile: %s Error: %v", inPath, err)
 			}
 			bufOut := bufio.NewWriter(outFile)
 			err = mdpp.Process(sourceMD, bufOut, &inDirPath, mdpp.WithDebug(debugMode), mdpp.WithAllowRemote(allowRemote))
 			if err != nil {
-				return fmt.Errorf("Failed to preprocess: %v", err)
+				return fmt.Errorf("failed to preprocess: %v", err)
 			}
 			err = bufOut.Flush()
 			if err != nil {
-				return fmt.Errorf("Failed to flush output: %v", err)
+				return fmt.Errorf("failed to flush output: %v", err)
 			}
 			if inFile != os.Stdin {
 				err = inFile.Close()
 				if err != nil {
-					return fmt.Errorf("Failed to close inFile: %s Error: %v", inPath, err)
+					return fmt.Errorf("failed to close inFile: %s Error: %v", inPath, err)
 				}
 			}
 			if outFile != os.Stdout {
 				err = outFile.Close()
 				if err != nil {
-					return fmt.Errorf("Failed to close outFile: %s Error: %v", outFile.Name(), err)
+					return fmt.Errorf("failed to close outFile: %s Error: %v", outFile.Name(), err)
 				}
 			}
 			if inPlace {
@@ -126,7 +126,7 @@ func mdppMain(args []string) (err error) {
 				var outContent []byte
 				outContent, err = os.ReadFile(outFile.Name())
 				if err != nil {
-					return fmt.Errorf("Failed to read output outFile: %s", outFile.Name())
+					return fmt.Errorf("failed to read output outFile: %s", outFile.Name())
 				}
 				if bytes.Equal(sourceMD, outContent) {
 					return nil
@@ -135,12 +135,12 @@ func mdppMain(args []string) (err error) {
 				var origFile *os.File
 				origFile, err = os.OpenFile(inPath, os.O_WRONLY|os.O_TRUNC, 0)
 				if err != nil {
-					return fmt.Errorf("Failed to open original file for writing: %s Error: %v", inPath, err)
+					return fmt.Errorf("failed to open original file for writing: %s Error: %v", inPath, err)
 				}
-				defer origFile.Close()
+				defer (func() { _ = origFile.Close() })()
 				_, err = origFile.Write(outContent)
 				if err != nil {
-					return fmt.Errorf("Failed to write to original file: %s Error: %v", inPath, err)
+					return fmt.Errorf("failed to write to original file: %s Error: %v", inPath, err)
 				}
 			}
 			return nil
