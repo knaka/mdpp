@@ -27,38 +27,39 @@ func WithHeader(hasHeader bool) Option {
 	}
 }
 
-// regexps holds all compiled regular expressions used for TBLFM parsing.
-type regexps struct {
-	formulaRe  *regexp.Regexp
-	cellRefRe  *regexp.Regexp
-	rowRefRe   *regexp.Regexp
-	cellPosRe  *regexp.Regexp
-	rangeRefRe *regexp.Regexp
-}
-
-// getRegexps returns all compiled regular expressions.
+// regexps returns all compiled regular expressions.
 // Uses sync.OnceValue to ensure regexp.MustCompile is only called once.
-var getRegexps = sync.OnceValue(func() *regexps {
-	return &regexps{
-		// Formula parser: supports $4=$2*$3 (column), @3=@2 (row), @3$4=@2$2 (cell)
-		// Also supports range syntax: @2$>..@>>$>=@1$>
-		formulaRe: regexp.MustCompile(`^((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)(?:\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?))?\s*=\s*(.+)$`),
-		// Find cell references like @2$3, $2, $3, $-1, $-2 (with optional row)
-		// Supports <, <<, <<< (up to 3 levels) and >, >>, >>> (up to 3 levels)
-		cellRefRe: regexp.MustCompile(`(@([-+]?\d+|<{1,3}|>{1,3}))?(\$([-+]?\d+|<{1,3}|>{1,3}))`),
-		// Find standalone row references like @2, @<, @<<, @<<< (this will also match @2$ but we process cellRefRe first)
-		rowRefRe: regexp.MustCompile(`@([-+]?\d+|<{1,3}|>{1,3})`),
-		// Parse cell position like @2$3, $4, @3
-		cellPosRe: regexp.MustCompile(`^(?:@([-+]?\d+|<{1,3}|>{1,3}))?(?:\$([-+]?\d+|<{1,3}|>{1,3}))?$`),
-		// Find range references like @<..@>> or @2$1..@5$3
-		rangeRefRe: regexp.MustCompile(`((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)`),
-	}
+var regexps = sync.OnceValue(func() (r struct {
+	formula  *regexp.Regexp
+	cellRef  *regexp.Regexp
+	rowRef   *regexp.Regexp
+	cellPos  *regexp.Regexp
+	rangeRef *regexp.Regexp
+}) {
+	// Formula parser: supports $4=$2*$3 (column), @3=@2 (row), @3$4=@2$2 (cell)
+	// Also supports range syntax: @2$>..@>>$>=@1$>
+	r.formula = regexp.MustCompile(`^((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)(?:\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?))?\s*=\s*(.+)$`)
+
+	// Find cell references like @2$3, $2, $3, $-1, $-2 (with optional row)
+	// Supports <, <<, <<< (up to 3 levels) and >, >>, >>> (up to 3 levels)
+	r.cellRef = regexp.MustCompile(`(@([-+]?\d+|<{1,3}|>{1,3}))?(\$([-+]?\d+|<{1,3}|>{1,3}))`)
+
+	// Find standalone row references like @2, @<, @<<, @<<< (this will also match @2$ but we process cellRefRe first)
+	r.rowRef = regexp.MustCompile(`@([-+]?\d+|<{1,3}|>{1,3})`)
+
+	// Parse cell position like @2$3, $4, @3
+	r.cellPos = regexp.MustCompile(`^(?:@([-+]?\d+|<{1,3}|>{1,3}))?(?:\$([-+]?\d+|<{1,3}|>{1,3}))?$`)
+
+	// Find range references like @<..@>> or @2$1..@5$3
+	r.rangeRef = regexp.MustCompile(`((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)\.\.((?:@[-+]?\d+|@<{1,3}|@>{1,3})?(?:\$[-+]?\d+|\$<{1,3}|\$>{1,3})?)`)
+
+	return
 })
 
 // parseCellPosition parses a cell position specification like "@2$3", "$4", "@3"
 // Returns (row, col) where -1 means "any" (not specified)
 // currentRow and currentCol are 1-based positions used for relative references
-func parseCellPosition(pos string, startRow int, tableLen int, rowLen int, currentRow int, currentCol int) (row int, col int) {
+func parseCellPosition(pos string, tableLen int, rowLen int, currentRow int, currentCol int) (row int, col int) {
 	row = -1
 	col = -1
 
@@ -66,7 +67,7 @@ func parseCellPosition(pos string, startRow int, tableLen int, rowLen int, curre
 		return
 	}
 
-	matches := getRegexps().cellPosRe.FindStringSubmatch(pos)
+	matches := regexps().cellPos.FindStringSubmatch(pos)
 	if matches == nil {
 		return
 	}
@@ -173,7 +174,7 @@ func Apply(
 		}
 
 		// Parse formula
-		matches := getRegexps().formulaRe.FindStringSubmatch(formula)
+		matches := regexps().formula.FindStringSubmatch(formula)
 		if matches == nil {
 			return resultTable, fmt.Errorf("invalid formula format: %s", formula)
 		}
@@ -191,12 +192,12 @@ func Apply(
 		}
 
 		// Parse start position (no current position for target specification)
-		targetStartRow, targetStartCol := parseCellPosition(startPosSpec, dataStartRow, len(table), maxRowLen, 0, 0)
+		targetStartRow, targetStartCol := parseCellPosition(startPosSpec, len(table), maxRowLen, 0, 0)
 
 		// Parse end position (if range specified)
 		var targetEndRow, targetEndCol int = -1, -1
 		if endPosSpec != "" {
-			targetEndRow, targetEndCol = parseCellPosition(endPosSpec, dataStartRow, len(table), maxRowLen, 0, 0)
+			targetEndRow, targetEndCol = parseCellPosition(endPosSpec, len(table), maxRowLen, 0, 0)
 		}
 
 		// Determine target range
@@ -263,8 +264,8 @@ func evaluateExpression(L *lua.LState, expression string, table [][]string, curr
 	evaluableExpr := expression
 
 	// First, replace range references with Lua table literals
-	evaluableExpr = getRegexps().rangeRefRe.ReplaceAllStringFunc(evaluableExpr, func(rangeRef string) string {
-		matches := getRegexps().rangeRefRe.FindStringSubmatch(rangeRef)
+	evaluableExpr = regexps().rangeRef.ReplaceAllStringFunc(evaluableExpr, func(rangeRef string) string {
+		matches := regexps().rangeRef.FindStringSubmatch(rangeRef)
 		if matches == nil {
 			return rangeRef
 		}
@@ -300,8 +301,8 @@ func evaluateExpression(L *lua.LState, expression string, table [][]string, curr
 	})
 
 	// Then, replace cell references (with optional row) like @2$3, $2
-	evaluableExpr = getRegexps().cellRefRe.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
-		matches := getRegexps().cellRefRe.FindStringSubmatch(ref)
+	evaluableExpr = regexps().cellRef.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
+		matches := regexps().cellRef.FindStringSubmatch(ref)
 		if matches == nil {
 			return ref
 		}
@@ -378,8 +379,8 @@ func evaluateExpression(L *lua.LState, expression string, table [][]string, curr
 	})
 
 	// Then, replace standalone row references like @<, @<<, @> (for row copy operations)
-	evaluableExpr = getRegexps().rowRefRe.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
-		matches := getRegexps().rowRefRe.FindStringSubmatch(ref)
+	evaluableExpr = regexps().rowRef.ReplaceAllStringFunc(evaluableExpr, func(ref string) string {
+		matches := regexps().rowRef.FindStringSubmatch(ref)
 		if matches == nil {
 			return ref
 		}
@@ -463,8 +464,8 @@ func expandRange(startPos, endPos string, table [][]string, currentRow, currentC
 		}
 	}
 
-	startRow, startCol := parseCellPosition(startPos, dataStartRow, len(table), maxRowLen, currentRow, currentCol)
-	endRow, endCol := parseCellPosition(endPos, dataStartRow, len(table), maxRowLen, currentRow, currentCol)
+	startRow, startCol := parseCellPosition(startPos, len(table), maxRowLen, currentRow, currentCol)
+	endRow, endCol := parseCellPosition(endPos, len(table), maxRowLen, currentRow, currentCol)
 
 	var values []any
 

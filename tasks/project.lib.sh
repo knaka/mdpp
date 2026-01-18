@@ -7,6 +7,10 @@
 
 # Run Go tests.
 subcmd_test() {
+  if test $# = 0
+  then
+    set -- ./...
+  fi
   go test "$@"
 }
 
