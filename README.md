@@ -183,7 +183,7 @@ Formulas are evaluated using [Lua](https://www.lua.org/) interpreter, which prov
   - `vmax(range)` - Maximum value
   - `vmin(range)` - Minimum value
 
-- All other [Programming in Lua (first edition)](https://www.lua.org/pil/contents.html) including arithmetic operators, comparison operators, logical operators, and string operations.
+- All other [builtin functions and libraries](https://www.lua.org/pil/contents.html) including arithmetic operators, comparison operators, logical operators, and string operations.
 
 #### +TABLE_INCLUDE / +TINCLUDE
 
