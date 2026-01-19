@@ -13,13 +13,17 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/k0kubun/pp"
 	gm "github.com/yuin/goldmark"
 	gmmeta "github.com/yuin/goldmark-meta"
 	gmast "github.com/yuin/goldmark/ast"
 	gmext "github.com/yuin/goldmark/extension"
 	gmparser "github.com/yuin/goldmark/parser"
 	gmtext "github.com/yuin/goldmark/text"
+	"golang.org/x/term"
 
+	//lint:ignore ST1001
+	//nolint:staticcheck
 	//revive:disable-next-line:dot-imports
 	. "github.com/knaka/go-utils"
 
@@ -315,6 +319,12 @@ func Process(
 	if err = funcopt.Apply(&params, opts); err != nil {
 		return
 	}
+	if params.debug {
+		pp.SetDefaultOutput(os.Stderr)
+		if !term.IsTerminal(int(os.Stderr.Fd())) {
+			pp.ColoringEnabled = false
+		}
+	}
 	// Change working directory if dirPathOpt is provided.
 	if dirPathOpt != nil && *dirPathOpt != "" {
 		currentDir, err2 := os.Getwd()
@@ -332,7 +342,7 @@ func Process(
 	// Then, parse the other directives
 	gmTree, _ := gmParse(sourceMD)
 	if params.debug {
-		gmTree.Dump(sourceMD, 0)
+		Must(pp.Println(gmTree))
 	}
 	cursor := 0
 	err = gmast.Walk(gmTree, func(node gmast.Node, entering bool) (gmast.WalkStatus, error) {
