@@ -10,13 +10,14 @@ jobs:
         platform: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     steps:
-    # actions/setup-go: Set up your GitHub Actions workflow with a specific version of Go https://github.com/actions/setup-go/?tab=readme-ov-file
-    - name: Install Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
-        cache: true
-    - name: Checkout code
-      uses: actions/checkout@v1
-    - name: Run tests
-      run: go test -v -shuffle on ./...
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      # actions/setup-go: Set up your GitHub Actions workflow with a specific version of Go https://github.com/actions/setup-go
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+      - name: Run tests
+        run: go test -v -shuffle on ./...

@@ -11,9 +11,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout: Action for checking out a repo https://github.com/actions/checkout
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      # actions/setup-go: Set up your GitHub Actions workflow with a specific version of Go https://github.com/actions/setup-go
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
