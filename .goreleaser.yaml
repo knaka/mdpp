@@ -6,6 +6,8 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
+# Go - GoReleaser https://goreleaser.com/customization/builds/go/
+
 version: 2
 
 before:
@@ -26,6 +28,10 @@ builds:
     goarch:
       - amd64
       - arm64
+    # List of combinations of GOOS + GOARCH + GOARM to ignore.
+    ignore:
+      - goos: windows
+        goarch: arm64
 
 archives:
   - formats: [tar.gz]
