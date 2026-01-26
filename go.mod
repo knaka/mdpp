@@ -1,6 +1,6 @@
 module github.com/knaka/mdpp
 
-go 1.24
+go 1.24.0
 
 toolchain go1.24.2
 
@@ -24,7 +24,7 @@ require (
 	github.com/nine-lives-later/go-windows-terminal-sequences v1.0.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
-	golang.org/x/term v0.24.0 // indirect
+	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -33,8 +33,8 @@ require (
 require (
 	github.com/johnkerl/miller/v6 v6.13.0
 	github.com/knaka/go-utils v0.1.12
-	github.com/knaka/tblcalc v0.9.0
+	github.com/knaka/tblcalc v0.9.3
 	github.com/sergi/go-diff v1.2.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
