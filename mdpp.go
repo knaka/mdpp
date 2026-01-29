@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/k0kubun/pp"
+	"github.com/knaka/go-utils/funcopt"
 	gm "github.com/yuin/goldmark"
 	gmmeta "github.com/yuin/goldmark-meta"
 	gmast "github.com/yuin/goldmark/ast"
@@ -26,8 +27,6 @@ import (
 	//nolint:staticcheck
 	//revive:disable-next-line:dot-imports
 	. "github.com/knaka/go-utils"
-
-	"github.com/knaka/go-utils/funcopt"
 )
 
 // gmParser returns a Goldmark parser.
