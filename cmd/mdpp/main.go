@@ -88,10 +88,10 @@ func mdppMain(args []string) (err error) {
 				if err != nil {
 					return fmt.Errorf("failed to create temporary outFile: %v", err)
 				}
-				defer func() {
-					_ = outFile.Close()
-					_ = os.Remove(outFile.Name())
-				}()
+				defer (func() {
+					Ignore(outFile.Close())
+					Must(os.Remove(outFile.Name()))
+				})()
 			} else {
 				outFile = os.Stdout
 			}
