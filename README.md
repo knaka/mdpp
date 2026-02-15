@@ -165,12 +165,44 @@ While Lua's string concatenation operator `..` visually resembles the range oper
 
 Cell references use Org-mode-style notation:
 - `@2` refers to row 2 (first data row after header)
+- `$3` refers to column 3
 - `$>` refers to the last column
 - `@>` refers to the last row
 - `@>>` refers to the second-to-last row
 - `@<` refers to the first row including header
+- `${Header Name}` refers to a column by its header name (e.g., `${Unit Price}`, `${Quantity}`)
 - Ranges are specified with `..` (e.g., `@<<$>..@>>$>` means "from row 2 last column to second-to-last row last column")
 - Multiple formulas can be specified, separated by newlines or `::`
+
+**Column reference by header name:**
+
+Instead of using numeric column indices like `$2` or `$3`, you can reference columns by their header names using `${Header Name}` syntax. This makes formulas more readable and resilient to column reordering.
+
+**Input:**
+
+```markdown
+| Item | Unit Price | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 0 |
+| Banana | 2.0 | 5 | 0 |
+| Orange | 1.2 | 8 | 0 |
+
+<!-- +TBLFM: ${Total}=${Unit Price}*${Quantity} -->
+```
+
+**Output:**
+
+```markdown
+| Item | Unit Price | Quantity | Total |
+| --- | --- | --- | --- |
+| Apple | 2.5 | 12 | 30 |
+| Banana | 2.0 | 5 | 10 |
+| Orange | 1.2 | 8 | 9.6 |
+
+<!-- +TBLFM: ${Total}=${Unit Price}*${Quantity} -->
+```
+
+Header name references can also be used in range expressions (e.g., `vsum(${Q1}..${Q4})`).
 
 **Available functions:**
 

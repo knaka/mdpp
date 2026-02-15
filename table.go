@@ -1,13 +1,15 @@
 package mdpp
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"os"
 	"path"
 	"strings"
 
+	"github.com/knaka/tblcalc/mlr"
 	"github.com/knaka/tblcalc/tblfm"
 
 	gmast "github.com/yuin/goldmark/ast"
@@ -134,28 +136,37 @@ func processMillerTable(
 	nextWritePos int, // The next write position after processing
 ) {
 	return processTable(sourceMD, writer, writePos, directiveNode, func(tableData [][]string, hasHeader bool) [][]string {
-		// Convert to TSV and process with Miller
-		var tsvBuilder strings.Builder
+		tempIn := Value(os.CreateTemp("", "data-*.tsv"))
+		tempInPath := tempIn.Name()
+		defer (func() {
+			Ignore(tempIn.Close())
+			Must(os.Remove(tempInPath))
+		})()
 		for _, rowData := range tableData {
-			tsvBuilder.WriteString(strings.Join(rowData, "\t"))
-			tsvBuilder.WriteString("\n")
+			Must(fmt.Fprintln(tempIn, strings.Join(rowData, "\t")))
 		}
-
-		tempDirPath, cleanupTempDir := mkdirTemp()
-		defer cleanupTempDir()
-		tempFilePath := path.Join(tempDirPath, "data.tsv")
-		Must(os.WriteFile(tempFilePath, []byte(tsvBuilder.String()), 0600))
-		mlrTSVInplacePut(tempFilePath, millerScript, hasHeader)
-		processedTSV := Value(os.ReadFile(tempFilePath))
-
-		// Parse TSV back to table data
-		processedTableData := [][]string{}
-		for line := range bytes.SplitSeq(processedTSV, []byte{'\n'}) {
-			if len(line) > 0 {
-				processedTableData = append(processedTableData, strings.Split(string(line), "\t"))
-			}
+		Must(tempIn.Close())
+		tempOut := Value(os.CreateTemp("", "data-*.tsv"))
+		tempOutPath := tempOut.Name()
+		defer (func() {
+			Ignore(tempOut.Close())
+			Must(os.Remove(tempOutPath))
+		})()
+		err := mlr.Put(
+			[]string{tempInPath},
+			[]string{millerScript},
+			true,
+			"tsv",
+			"tsv",
+			tempOut,
+		)
+		if err != nil {
+			return tableData
 		}
-		return processedTableData
+		Must(tempOut.Close())
+		tempOut2 := Value(os.Open(tempOutPath))
+		defer (func() { Must(tempOut2.Close()) })()
+		return Value(loadTableFromReader(tempOut2, "tsv"))
 	})
 }
 
@@ -203,30 +214,46 @@ func processTBLFMTable(
 	})
 }
 
-// loadTableFromFile loads table data from a CSV or TSV file based on file extension.
-func loadTableFromFile(filePath string) ([][]string, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	ext := strings.ToLower(path.Ext(filePath))
-
-	// Use encoding/csv for CSV files to properly handle quoted fields, commas, and newlines
-	if ext == ".csv" || ext == "" {
-		reader := bytes.NewReader(data)
+// loadTableFromReader loads table data from a reader in the specified format.
+// format should be "csv" or "tsv".
+func loadTableFromReader(reader io.Reader, format string) ([][]string, error) {
+	if format == "csv" {
 		csvReader := csv.NewReader(reader)
 		return csvReader.ReadAll()
 	}
 
-	// For TSV files, use simple split (TSV files typically don't have quoted fields)
+	// For TSV files, use bufio.Scanner to read line by line
 	var tableData [][]string
-	for line := range bytes.SplitSeq(data, []byte{'\n'}) {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Text()
 		if len(line) > 0 {
-			tableData = append(tableData, strings.Split(string(line), "\t"))
+			tableData = append(tableData, strings.Split(line, "\t"))
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
 	return tableData, nil
+}
+
+// loadTableFromFile loads table data from a CSV or TSV file based on file extension.
+func loadTableFromFile(filePath string) ([][]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer (func() { Must(file.Close()) })()
+
+	ext := strings.ToLower(path.Ext(filePath))
+
+	// Use encoding/csv for CSV files to properly handle quoted fields, commas, and newlines
+	format := "tsv"
+	if ext == ".csv" || ext == "" {
+		format = "csv"
+	}
+
+	return loadTableFromReader(file, format)
 }
 
 // processTableInclude processes a table include directive, loads data from file, and writes the result to writer.
