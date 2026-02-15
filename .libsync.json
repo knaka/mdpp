@@ -1,0 +1,21 @@
+{
+  "libraries": [
+    {
+      "name": "lib-sh",
+      "repo": "git@github.com:knaka/src.git",
+      "paths": [
+        ".lib",
+        "mise",
+        "mise-tasks/tasks/.lib",
+        "mise-tasks/tasks/expand",
+        "mise.cmd",
+        "task",
+        "task.cmd"
+      ],
+      "dest": ".",
+      "branch": "main",
+      "commit": "bfe4a3203f5693a1bdbedd4007d530c7165cbc28",
+      "fetched_at": "2026-02-15T10:09:06+0900"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+#!/usr/bin/env sh
+# vim: set filetype=sh tabstop=2 shiftwidth=2 expandtab :
+# shellcheck shell=sh
+"${sourced_0d6bf87-false}" && return 0; sourced_0d6bf87=true
+
+set -- "$PWD" "${0%/*}" "$@"; test -z "${_APPDIR-}" && { test "$2" = "$0" && _APPDIR=. || _APPDIR="$2"; cd "$_APPDIR" || exit 1; }
+set -- _LIBDIR .lib "$@"
+. ./.lib/utils.lib.sh
+shift 2
+cd "$1" || exit 1; shift 2
+
+#MISE description="Generate routing scripts for tasks defined in monolithic shell files."
+#MISE tools={"jq"="1.8"}
+
+marker_93949c9="ed9038b1-9de5-40fd-bede-eabed9b60306"
+
+# Parse shell task files and extract task/subcmd information with their metadata.
+# Outputs lines in format: "<type> <name> <func_name> <basename> <body>"
+extract_task_info() {
+  # shellcheck disable=SC2016
+  local scr='BEGIN {desc = "";mise_hdrs_count = 0;}/^#MISE / || /^# *\[MISE\] / {line = $0;gsub(/^#MISE +/, "", line);gsub(/^# *\[MISE\] +/, "", line);mise_hdrs[mise_hdrs_count++] = line;next;}/^#/ {if (desc == "") {line = $0;gsub(/^#+[ ]*/, "", line);desc = line;}next;}/^(task_|subcmd_)[[:alnum:]_]()/ {func_name = $1;sub(/\(\).*$/, "", func_name);type = func_name;sub(/_.*$/, "", type);name = func_name;sub(/^[^_]+_/, "", name);gsub(/__/, ":", name);base = FILENAME;sub(/^.*\//, "", base);print type " " name " " func_name " " base " " desc;for (i = 0; i < mise_hdrs_count; i++) {type = "mise";print type " " name " " func_name " " base " " mise_hdrs[i];}desc = "";delete mise_hdrs;mise_hdrs_count = 0;next;}{desc = "";delete mise_hdrs;mise_hdrs_count = 0;}END {print "nop - - - -";}' #EMBED: ./extract-task-info.awk
+  awk "$scr" "$@"
+}
+
+# Generate the shell script that will be executed when a Mise task is invoked.
+# The script changes to the mise-sh directory, sources the library file,
+# then returns to the original directory and calls the task function.
+gen_ba88d3d() {
+  # Not to be recognized as a MISE header of this file.
+  local mise_header="#MISE"
+  cat <<EOF
+#!/usr/bin/env sh
+
+# Code generated from "$base" by tasks:expand task. DO NOT EDIT.
+
+#${marker_93949c9}
+${mise_header} description="$body"
+saved_pwd_474b89b="\$PWD"
+_APPDIR="\$MISE_PROJECT_ROOT"/mise-tasks
+cd "\$_APPDIR"
+. ./"$base"
+cd "\$saved_pwd_474b89b"
+set -o nounset -o errexit
+${func_name} "\$@"
+EOF
+}
+
+# Read task info from stdin and generate TOML files for each source file.
+# Groups tasks by their source basename and outputs _route-<basename>.toml files.
+# Handles "task"/"subcmd" types by setting description and run script,
+# and "mise" type by merging additional mise configuration headers.
+generate_tasks() {
+  local base_prev=
+  local type name func_name base body
+  while read -r type name func_name base body
+  do
+    if test "$base" != "$base_prev"
+    then
+      :
+    fi
+    local file_path
+    # shellcheck disable=SC2086
+    file_path="$PWD$(IFS=:; printf "/%s" $name)"
+    local dir_path
+    dir_path="$(dirname "$file_path")"
+    case "$type" in
+      (task|subcmd)
+        mkdir -p "$dir_path"
+        gen_ba88d3d >"$file_path"
+        chmod +x "$file_path"
+        ;;
+      (mise)
+        echo "#MISE $body" >>"$file_path"
+        ;;
+      (nop)
+        ;;
+      (*)
+        exit 1
+    esac
+    base_prev="$base"
+  done
+}
+
+main() {
+  echo "Expanding task definitions in project \"$PROJECT_DIR\"." >&2
+  cd "$PROJECT_DIR"/mise-tasks || exit 1
+  find . -type f -print0 \
+  | xargs -0 grep -l "#${marker_93949c9}" \
+  | xargs rm -f
+  extract_task_info ./*.sh | generate_tasks
+}
+
+set -o nounset -o errexit
+
+main "$@"

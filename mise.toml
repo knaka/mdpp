@@ -1,0 +1,11 @@
+# BusyBox for Windows https://frippery.org/busybox/
+[tools."http:busybox"]
+os = ["windows"]
+bin = "sh.exe"
+url = 'https://frippery.org/files/busybox/busybox-w64{{arch(x64="u",arm64="a")}}-{{version}}.exe'
+# Release Notes: busybox-w32 https://frippery.org/busybox/release-notes/current.html
+version = "FRP-5857-g3681e397f"
+# https://frippery.org/files/busybox/SHA256SUM
+[tools."http:busybox".platforms]
+windows-x64 = { checksum = 'sha256:d5d624ddb5f3cc235179d2912be36e5218dd59ecc851bbc040d3a1d0707ec45a' }
+windows-arm64 = { checksum = 'sha256:4e39dc577782fd0af75222738e609ba43d8d2a98131e88928f1b0dad45048b99' }

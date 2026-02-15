@@ -2,43 +2,58 @@
 # vim: set filetype=sh tabstop=2 shiftwidth=2 expandtab :
 # shellcheck shell=sh
 
-# Executes the shell script with the same name but with a `.sh` extension in the same directory or in the `./tasks/` directory.
+set -- "$PWD" "${0%/*}" "$@"; if test -z "${_APPDIR-}"; then _APPDIR=.; if test "$2" != "$0"; then _APPDIR="$2"; fi; cd "$_APPDIR" || exit 1; fi
+cd "$1" || exit 1; shift 2
 
-set -o nounset -o errexit
-
-export INITIAL_PWD="$PWD"
-export ARG0="$0"
-export ARG0BASE="${0##*/}"
-PROJECT_DIR="${0%/*}"
-if test -z "$PROJECT_DIR"
-then
-  PROJECT_DIR="$PWD"
-fi
-export PROJECT_DIR
-TASKS_DIR=
-if test -r "$PROJECT_DIR"/"$ARG0BASE".sh
-then
-  TASKS_DIR="$PROJECT_DIR"
-elif test -r "$PROJECT_DIR"/tasks/"$ARG0BASE".sh
-then
-  TASKS_DIR="$PROJECT_DIR"/tasks
-else
-  echo "Cannot find script file for $ARG0" >&2
-  exit 1
-fi
-export TASKS_DIR
-script_file_path="$TASKS_DIR"/"$ARG0BASE".sh
-for SH in /bin/dash /bin/ash /bin/bash
-do
-  # Avoid using Dash on Debian because it is built with --disable-lineno option.
-  test "$SH" = /bin/dash && test -e /etc/debian_version && continue
-  # Avoid using Bash on macOS because it is locked to version 3.* and buggy.
-  test "$SH" = "/bin/bash" && test -e /System/Library/CoreServices/SystemVersion.plist && continue
-  if test -x "$SH"
+task() {
+  local sh
+  if test "${SH:+set}" = set
   then
-    export SH
-    exec "$SH" "$script_file_path" "$@"
+    sh="$SH"
+  else
+    for sh in /bin/dash /bin/ash /bin/bash /bin/sh
+    do
+    continue
+      if test -x "$sh"
+      then
+        SH="$sh"
+        export SH
+        break
+      fi
+    done
   fi
-done
-echo "No appropriate shell found." >&2
-exit 1
+
+  if test $# = 0
+  then
+    exec "$_APPDIR"/mise tasks
+  else
+    local task="$1"
+    shift
+    case "$task" in
+      (*/*:*)
+        # "file_name:function_name"
+        local file
+        file="${task%:*}"
+        local dir
+        dir="$(dirname "$file")"
+        local func
+        func="${task##*:}"
+        set -- _LIBDIR "$dir" "$@"
+        # shellcheck disable=SC1090
+        . ./"$file"
+        shift 2
+        "$func" "$@"
+        ;;
+      (*/*)
+        # "file_name"
+        "${sh}" "$task" "$@"
+        ;;
+      (*)
+        # Mise task
+        exec "$_APPDIR"/mise run "$task" -- "$@"
+        ;;
+    esac
+  fi
+}
+
+task "$@"

@@ -1,0 +1,68 @@
+#!/usr/bin/env sh
+# vim: set filetype=sh tabstop=2 shiftwidth=2 expandtab :
+# shellcheck shell=sh
+"${sourced_1b73bd7-false}" && return 0; sourced_1b73bd7=true
+
+# Mise - Home | mise-en-place https://mise.jdx.dev/
+
+# Copied from .\mise.cmd .
+mise_ver_e8ccfbb='2026.2.9'
+
+mise() {
+  local ver="$mise_ver_e8ccfbb"
+  local os
+  local exe_ext=
+  local ext=.tar.gz
+  if test -r /System/Library/CoreServices/SystemVersion.plist
+  then
+    os=macos
+  elif test -d "c:/" -a ! -d /proc
+  then
+    os=windows
+    exe_ext=.exe
+    ext=.zip
+  elif test -d /proc -o -d /sys
+  then
+    os=linux
+  fi
+  local app_dir_path="$CACHE_DIR/mise@$ver"
+  mkdir -p "$app_dir_path"
+  local cmd_path="$app_dir_path/mise$exe_ext"
+  if ! command -v "$cmd_path" >/dev/null 2>&1
+  then
+    local arch
+    case "$(uname -m)" in
+      (x86_64) arch=x64;;
+      (arm64) arch=arm64;;
+    esac
+    local url="https://github.com/jdx/mise/releases/download/v${ver}/mise-v${ver}-${os}-${arch}${ext}"
+    local out_file_path="$TEMP_DIR/mise$ext"
+    if ! curl --fail --location "$url" --output "$out_file_path"
+    then
+      echo "Failed to download: $url" >&2
+      exit 1
+    fi
+    local work_dir_path="$TEMP_DIR"/work-$$
+    mkdir -p "$work_dir_path"
+    local saved_pwd="$PWD"
+    cd "$work_dir_path" || exit 1
+    case "$ext" in
+      (.zip) unzip "$out_file_path" >&2 ;;
+      (.tar.gz) tar -xf "$out_file_path" >&2 ;;
+      (*) exit 1;;
+    esac
+    cd "$saved_pwd" || exit 1
+    mv "$work_dir_path"/mise/bin/* "$app_dir_path"
+  fi
+  "$cmd_path" "$@"
+}
+
+case "${0##*/}" in
+  (mise)
+    set -o nounset -o errexit
+    CACHE_DIR="$HOME"/.cache/task-sh
+    TEMP_DIR="$(mktemp -d)"
+    trap 'rm -fr "$TEMP_DIR"' EXIT
+    mise "$@"
+    ;;
+esac
