@@ -346,7 +346,14 @@ func TestIncludeDirective(t *testing.T) {
 	}{
 		{
 			name: "basic include",
-			input: []byte(`# Main Document
+			input: []byte(`---
+id: "d56492c"
+title: "test.md"
+tags: []
+created_at: "2026-08-06T15:04:51Z"
+---
+
+# Main Document
 
 Some content before include.
 
@@ -355,7 +362,14 @@ Some content before include.
 
 Some content after include.
 `),
-			expected: []byte(`# Main Document
+			expected: []byte(`---
+id: "d56492c"
+title: "test.md"
+tags: []
+created_at: "2026-08-06T15:04:51Z"
+---
+
+# Main Document
 
 Some content before include.
 

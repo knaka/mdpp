@@ -161,7 +161,7 @@ func processIncludeDirectives(sourceMD []byte, allowRemote bool) []byte {
 func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[string]bool, allowRemote bool) []byte {
 	lines := strings.Split(string(sourceMD), "\n")
 	// Skip front-matter
-	if len(lines) > 0 && strings.TrimSpace(lines[0]) == "---" {
+	if len(visited) > 0 && len(lines) > 0 && strings.TrimSpace(lines[0]) == "---" {
 		for i := 1; i < len(lines); i++ {
 			if strings.TrimSpace(lines[i]) == "---" {
 				lines = lines[i+1:]
