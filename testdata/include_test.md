@@ -1,3 +1,9 @@
+---
+id: "6feba41"
+title: "include_test.md"
+tags: []
+created_at: "2026-08-06T15:04:50Z"
+---
 # Included Content
 
 This is content from an included file.

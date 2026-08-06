@@ -160,6 +160,15 @@ func processIncludeDirectives(sourceMD []byte, allowRemote bool) []byte {
 // processIncludeDirectivesWithLoopDetection processes +INCLUDE ... +END directives with cycle detection
 func processIncludeDirectivesWithLoopDetection(sourceMD []byte, visited map[string]bool, allowRemote bool) []byte {
 	lines := strings.Split(string(sourceMD), "\n")
+	// Skip front-matter
+	if len(lines) > 0 && strings.TrimSpace(lines[0]) == "---" {
+		for i := 1; i < len(lines); i++ {
+			if strings.TrimSpace(lines[i]) == "---" {
+				lines = lines[i+1:]
+				break
+			}
+		}
+	}
 	var result []string
 	includeDepth := 0 // Track nesting depth to avoid processing nested directives
 	for i := 0; i < len(lines); i++ {
