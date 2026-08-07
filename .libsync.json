@@ -4,18 +4,24 @@
       "name": "lib-sh",
       "repo": "git@github.com:knaka/src.git",
       "paths": [
-        ".lib",
+        ".lib/utils.sh",
+        ".lib/ip.sh",
+        ".lib/cui.sh",
+        ".lib/worker.sh",
+        ".lib/build.sh",
+        ".mise/tasks/tasks/expand.sh",
+        ".config/mise/conf.d/mdpp.toml",
+        ".claude/skills/mise",
+        ".claude/skills/shell-script-grammar",
         "mise",
-        "mise-tasks/tasks/.lib",
-        "mise-tasks/tasks/expand",
         "mise.cmd",
         "task",
         "task.cmd"
       ],
       "dest": ".",
       "branch": "main",
-      "commit": "bfe4a3203f5693a1bdbedd4007d530c7165cbc28",
-      "fetched_at": "2026-02-15T10:09:06+0900"
+      "commit": "d181dd56609896312ff9d97b4bcb10c4444e1101",
+      "fetched_at": "2026-08-07T10:45:38+0900"
     }
   ]
 }

@@ -1,59 +1,114 @@
 #!/usr/bin/env sh
-# vim: set filetype=sh tabstop=2 shiftwidth=2 expandtab :
-# shellcheck shell=sh
 
-set -- "$PWD" "${0%/*}" "$@"; if test -z "${_APPDIR-}"; then _APPDIR=.; if test "$2" != "$0"; then _APPDIR="$2"; fi; cd "$_APPDIR" || exit 1; fi
-cd "$1" || exit 1; shift 2
+cd "${0%[/\\]*}" 2>/dev/null || cd .; APPDIR="$PWD"; cd "$OLDPWD" || exit
+readonly APPDIR
 
-task() {
-  local sh
-  if test "${SH:+set}" = set
-  then
-    sh="$SH"
-  else
-    for sh in /bin/dash /bin/ash /bin/bash /bin/sh
-    do
-    continue
-      if test -x "$sh"
-      then
-        SH="$sh"
-        export SH
-        break
-      fi
-    done
-  fi
-
-  if test $# = 0
-  then
-    exec "$_APPDIR"/mise tasks
-  else
-    local task="$1"
-    shift
-    case "$task" in
-      (*/*:*)
-        # "file_name:function_name"
-        local file
-        file="${task%:*}"
-        local dir
-        dir="$(dirname "$file")"
-        local func
-        func="${task##*:}"
-        set -- _LIBDIR "$dir" "$@"
-        # shellcheck disable=SC1090
-        . ./"$file"
-        shift 2
-        "$func" "$@"
-        ;;
-      (*/*)
-        # "file_name"
-        "${sh}" "$task" "$@"
-        ;;
-      (*)
-        # Mise task
-        exec "$_APPDIR"/mise run "$task" -- "$@"
-        ;;
-    esac
-  fi
+resolve_file() {
+  test "${file+set}" = set || return 1
+  local cand
+  for cand in \
+    "$APPDIR"/"$file" \
+    "$APPDIR"/mise/"$file" \
+    "$APPDIR"/.mise/"$file" \
+    "$APPDIR"/.config/"$file" \
+    "$APPDIR"/.config/mise/"$file" \
+    "$APPDIR"/.config/mise/conf.d/"$file"
+  do
+    test -r "$cand" && file="$cand" && break
+  done
 }
 
+help() { cat <<EOF
+Usage: task [--env=MISE_ENV] [--env="ENV_VAR=VAL"] <task> [args...]
+
+EOF
+}
+
+task() {
+  local show_help=false
+  OPTIND=1; while getopts _-:E: OPT
+  do
+    test "$OPT" = - && OPT="${OPTARG%%=*}" && OPTARG="${OPTARG#"$OPT"=}"
+    case "$OPT" in
+      (h|help) show_help=true;;
+      (E|env)
+        case "$OPTARG" in
+          (*=*)
+            local var_name="${OPTARG%%=*}"
+            # shellcheck disable=SC2034
+            local var_val="${OPTARG#*=}"
+            eval "export $var_name=\$var_val"
+            ;;
+          (*)
+            export MISE_ENV="$OPTARG"
+            ;;
+        esac
+        ;;
+      (?) exit 1;;
+      (*) echo "$0: illegal option -- $OPT" >&2; exit 1;;
+    esac
+  done
+  shift $((OPTIND-1))
+
+  if test $# = 0 || "$show_help"
+  then
+    help
+    "$APPDIR"/mise tasks
+    "$show_help" && return 0
+    return 1
+  fi
+  case "$1" in
+    (*.sh:*|*.bash:*)
+      # "file_name:function_name"
+      local file_func="$1"
+      shift
+      local file
+      file="${file_func%:*}"
+      case "$file" in
+        (*/*) ;;
+        (*) test -r "$file" || resolve_file;;
+      esac
+      local dir
+      dir="$(dirname "$file")"
+      local func
+      func="${file_func##*:}"
+      case "$file" in
+        (*.bash)
+          bash -c "source \"$file\"; \"$func\""
+          ;;
+        (*)
+          set -- _SCRDIR "$dir" "$PWD" "$@"
+          # shellcheck disable=SC1090
+          . ./"$file"
+          shift 2
+          "$func" "$@"
+          ;;
+      esac
+      ;;
+    (*/*.sh|*/*.bash)
+      # "file_name"
+      local file="$1"
+      case "$file" in
+        (*/*) ;;
+        (*) test -r "$file" || resolve_file;;
+      esac
+      case "$file" in
+        (*.bash)
+          bash "$@"
+          ;;
+        (*)
+          sh "$@"
+          ;;
+      esac
+      ;;
+    (*)
+      local task="$1"
+      shift
+      set -- run "$task" -- "$@"
+      exec "$APPDIR"/mise "$@"
+      ;;
+  esac
+}
+
+set -o nounset -o errexit
 task "$@"

@@ -1,68 +1,61 @@
 #!/usr/bin/env sh
-# vim: set filetype=sh tabstop=2 shiftwidth=2 expandtab :
-# shellcheck shell=sh
-"${sourced_1b73bd7-false}" && return 0; sourced_1b73bd7=true
+set -- _83da9bf "$@"; eval "shift; \${$1-false} || ! $1=true" && return || :
+
+# Downloads and executes Mise in a project where contributors may not have mise installed.
+# — Home | mise-en-place https://mise.jdx.dev/
 
 # Mise - Home | mise-en-place https://mise.jdx.dev/
+mise_ver_e8ccfbb=2026.8.1
 
-# Copied from .\mise.cmd .
-mise_ver_e8ccfbb='2026.2.9'
+should_exec_9bf84a8=false
 
 mise() {
-  local ver="$mise_ver_e8ccfbb"
   local os
   local exe_ext=
-  local ext=.tar.gz
-  if test -r /System/Library/CoreServices/SystemVersion.plist
-  then
-    os=macos
-  elif test -d "c:/" -a ! -d /proc
+  if test -d \\
   then
     os=windows
     exe_ext=.exe
-    ext=.zip
-  elif test -d /proc -o -d /sys
+  elif test -r /System/Library/CoreServices/SystemVersion.plist
+  then
+    os=macos
+  elif test -d /proc -a -d /sys/kernel
   then
     os=linux
+  else
+    return 1
   fi
-  local app_dir_path="$CACHE_DIR/mise@$ver"
-  mkdir -p "$app_dir_path"
-  local cmd_path="$app_dir_path/mise$exe_ext"
+  local cache_dir_path="${XDG_CACHE_HOME-$HOME/.cache}"/mise
+  local cmd_base="mise-$mise_ver_e8ccfbb$exe_ext"
+  local cmd_path="$cache_dir_path/$cmd_base"
   if ! command -v "$cmd_path" >/dev/null 2>&1
   then
+    mkdir -p "$cache_dir_path"
+    cd "$cache_dir_path" || return 1
     local arch
     case "$(uname -m)" in
       (x86_64) arch=x64;;
-      (arm64) arch=arm64;;
+      (arm64|aarch64) arch=arm64;;
+      (*) return 1;;
     esac
-    local url="https://github.com/jdx/mise/releases/download/v${ver}/mise-v${ver}-${os}-${arch}${ext}"
-    local out_file_path="$TEMP_DIR/mise$ext"
-    if ! curl --fail --location "$url" --output "$out_file_path"
-    then
-      echo "Failed to download: $url" >&2
-      exit 1
-    fi
-    local work_dir_path="$TEMP_DIR"/work-$$
-    mkdir -p "$work_dir_path"
-    local saved_pwd="$PWD"
-    cd "$work_dir_path" || exit 1
-    case "$ext" in
-      (.zip) unzip "$out_file_path" >&2 ;;
-      (.tar.gz) tar -xf "$out_file_path" >&2 ;;
-      (*) exit 1;;
-    esac
-    cd "$saved_pwd" || exit 1
-    mv "$work_dir_path"/mise/bin/* "$app_dir_path"
+    local exe_base="mise-v$mise_ver_e8ccfbb-$os-$arch$exe_ext"
+    local exe_url="https://github.com/jdx/mise/releases/download/v$mise_ver_e8ccfbb/$exe_base"
+    echo "Downloading $exe_url" >&2
+    curl --fail --location "$exe_url" -o "$exe_base" || return 1
+    local sum_url="https://github.com/jdx/mise/releases/download/v$mise_ver_e8ccfbb/SHASUMS256.txt"
+    echo "Downloading $sum_url" >&2
+    curl --fail --location "$sum_url" -o - | grep "/$exe_base$" | sha256sum -c - >&2
+    mv -f "$exe_base" "$cmd_base"
+    chmod +x "$cmd_path"
+    cd "$OLDPWD" || exit 1
   fi
-  "$cmd_path" "$@"
+  "$should_exec_9bf84a8" && exec "$cmd_path" "$@"
+  command "$cmd_path" "$@"
 }
 
-case "${0##*/}" in
-  (mise)
-    set -o nounset -o errexit
-    CACHE_DIR="$HOME"/.cache/task-sh
-    TEMP_DIR="$(mktemp -d)"
-    trap 'rm -fr "$TEMP_DIR"' EXIT
-    mise "$@"
-    ;;
-esac
+_() { case "${0##*[/\\]}" in ("$1"|"$1".*) :;; (*) ! :;; esac; }; if _ mise
+then
+  set -o nounset -o errexit
+  should_exec_9bf84a8=true
+  mise "$@"
+fi
